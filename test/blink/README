@@ -1,0 +1,8 @@
+------------------------------------------------------------------------------
+README
+------------------------------------------------------------------------------
+
+This is small LED blinking example program using libopencm3.
+
+It will alternating blink tx/rx and err leds on the usbrf module.
+
