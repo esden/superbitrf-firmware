@@ -45,10 +45,21 @@ CFLAGS		+= -Os -g \
 		   -I$(TOOLCHAIN_DIR)/include \
 		   -fno-common $(ARCH_FLAGS) -MD -DSTM32F1
 LDSCRIPT	?= $(BINARY).ld
-LDFLAGS		+= --static -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group \
+LDFLAGS		+= --static -Wl,--start-group -lc -lgcc -Wl,--end-group \
 		   -L$(TOOLCHAIN_DIR)/lib \
 		   -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
 		   $(ARCH_FLAGS) -mfix-cortex-m3-ldrd
+
+SEMIHOSTING ?= 0
+
+ifeq ($(SEMIHOSTING),1)
+$(info **** Semihosting enabled!!! ****)
+CFLAGS          += -DSEMIHOSTING=1
+LDFLAGS          += --specs=rdimon.specs -lrdimon
+else
+CFLAGS          += -DSEMIHOSTING=0
+LDFLAGS          += -lnosys
+endif
 
 ifneq ($(OPENCM3_DIR),)
 CFLAGS          += -I$(OPENCM3_DIR)/include
