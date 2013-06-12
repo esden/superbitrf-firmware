@@ -66,6 +66,7 @@ void on_timer(void) {
 void on_receive(bool error) {
 	int i, count;
 	u8 packet_buf[16];
+	char cdc_msg[512];
 	u8 rx_status;
 
 	LED_TOGGLE(1);
@@ -79,6 +80,12 @@ void on_receive(bool error) {
 
 	// Copy packet to the packet buffer
 	cyrf_recv(packet_buf);
+
+	sprintf(cdc_msg, "Packet received: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+				packet_buf[0], packet_buf[1], packet_buf[2], packet_buf[3], packet_buf[4], packet_buf[5],
+				packet_buf[6], packet_buf[7], packet_buf[8], packet_buf[9], packet_buf[10], packet_buf[11],
+				packet_buf[12], packet_buf[13], packet_buf[14], packet_buf[15]);
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
 
 	// Compare with packet
 	count = 0;
@@ -115,10 +122,14 @@ int main(void)
 
 	// Config the cyrf RX mode, TX mode and framing
 	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
-	cyrf_set_tx_cfg(CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4); // Enable 64 chip codes, SDR mode and amplifier +4dBm
+	/*cyrf_set_tx_cfg(CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4); // Enable 64 chip codes, SDR mode and amplifier +4dBm
 	cyrf_set_rx_override(CYRF_FRC_RXDR | CYRF_DIS_RXCRC); // Force receive data rate and disable receive CRC checker
 	cyrf_set_tx_override(CYRF_DIS_TXCRC); // Disable the transmit CRC
-	cyrf_set_framing_cfg(CYRF_SOP_LEN | 0xA); // Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xA
+	cyrf_set_framing_cfg(CYRF_SOP_LEN | 0xA); // Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xA */
+	cyrf_set_tx_cfg(CYRF_DATA_MODE_8DR | CYRF_PA_4); // Enable 32 chip codes, 8DR mode and amplifier +4dBm
+	cyrf_set_rx_override(0x0); // Reset the rx override
+	cyrf_set_tx_override(0x0); // Reset the tx override
+	cyrf_set_framing_cfg(CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE); // Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
 
 	// Set the channel
 	cyrf_set_channel(0x61);

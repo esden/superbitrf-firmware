@@ -232,7 +232,9 @@ void cyrf_read_block(const u8 address, u8 data[], const int length) {
  * @param[out] The MFG id from the device
  */
 void cyrf_get_mfg_id(u8 *mfg_id) {
+	cyrf_write_register(CYRF_MFG_ID, 0xFF);
 	cyrf_read_block(CYRF_MFG_ID, mfg_id, 6);
+	cyrf_write_register(CYRF_MFG_ID, 0x00);
 }
 
 /**

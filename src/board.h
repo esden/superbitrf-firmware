@@ -42,8 +42,8 @@
 #define BTN_BIND_GPIO_PIN			GPIO12							/**< The Bind button GPIO pin */
 #define BTN_BIND_GPIO_CLK			RCC_APB2ENR_IOPBEN				/**< The Bind button GPIO clock */
 #define BTN_BIND_EXTI				EXTI12							/**< The Bind button EXTI for the interrupt */
-#define BTN_BIND_ISR				exti1_isr						/**< The Bind button ISR function for the interrupt */
-#define BTN_BIND_NVIC				NVIC_EXTI1_IRQ					/**< The Bind button NVIC for the interrupt */
+#define BTN_BIND_ISR				exti15_10_isr					/**< The Bind button ISR function for the interrupt */
+#define BTN_BIND_NVIC				NVIC_EXTI15_10_IRQ				/**< The Bind button NVIC for the interrupt */
 
 /* Define the USB connection */
 #define USB_DETACH_PORT				GPIOA							/**< The USB Detach GPIO base address */
