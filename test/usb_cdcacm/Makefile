@@ -19,7 +19,7 @@
 
 BINARY = cdcacm
 
-LDSCRIPT = ../../src/stm32f103cbt6.ld
+LDSCRIPT = ../../stm32f103cbt6.ld
 
-include ../../src/Makefile.include
+include ../../Makefile.include
 

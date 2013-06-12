@@ -21,9 +21,9 @@ BINARY = get_mfgid
 
 # Comment the following line if you _don't_ have luftboot flashed!
 CFLAGS += -std=c99
-LDSCRIPT = ../../src/stm32f103cbt6.ld
+LDSCRIPT = ../../stm32f103cbt6.ld
 
 SEMIHOSTING=1
 
-include ../../src/Makefile.include
+include ../../Makefile.include
 
