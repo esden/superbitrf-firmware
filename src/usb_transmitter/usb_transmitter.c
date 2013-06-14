@@ -26,11 +26,9 @@
 #include "../modules/cdcacm.h"
 #include "../modules/cyrf6936.h"
 
-/* Load the DSM protocol */
+/* Load the DSM protocol and the converter */
 #include "../protocol/dsm.h"
-#include <libopencm3/stm32/gpio.h>
-
-//void initialise_monitor_handles(void);
+#include "../protocol/convert.h"
 
 int main(void) {
 	// Setup the clock
@@ -42,17 +40,12 @@ int main(void) {
 	timer_init();
 	cdcacm_init();
 	cyrf_init();
+	convert_init();
 
 	// Initialize the DSM protocol
 	dsm_init();
 
-	// Set the power LED on
-	//LED_ON(POWER);
-
-	// Button test
-	//button_bind_register_callback(led_power_toggle);
-
-	// Start the DSM
+	// Start the DSM TODO: save the MFG id, so don't have to start in bind
 	dsm_start_bind();
 
 	// Button callback to dsm_start_bind
@@ -60,7 +53,7 @@ int main(void) {
 
 	/* The main loop */
 	while (1) {
-
+		// Run the cdcacm TODO: fix polling
 		cdcacm_run();
 	}
 

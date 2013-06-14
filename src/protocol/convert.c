@@ -17,136 +17,129 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <libopencm3/cm3/common.h>
 
 #include "convert.h"
+#include "../modules/cdcacm.h"
 
-/* The convert structures */
-struct TransmitConvert transmit_convert;
-struct ReceiveConvert receive_convert;
+/* The two buffers used */
+struct Buffer cdcacm_to_radio;
+struct Buffer radio_to_cdcacm;
 
 /**
- * Initialize the convert structures
+ * Initialize the buffer structures
  */
 void convert_init(void) {
-	// Initialize the transmit structure
-	transmit_convert.in_ptr = 0;
-	transmit_convert.in_max_ptr = 0;
-	transmit_convert.out_ptr = 0;
-	transmit_convert.out_max_ptr = 0;
+	// Initialize the cdcacm -> radio
+	cdcacm_to_radio.insert_idx = 0;
+	cdcacm_to_radio.extract_idx = 0;
 
-	// Initialize the receive structure
-	receive_convert.read_ptr = 0;
-	receive_convert.read_max_ptr = 0;
-	receive_convert.write_ptr =0;
-	receive_convert.write_max_ptr = 0;
+	// Initialize the radio -> cdcacm
+	radio_to_cdcacm.insert_idx = 0;
+	radio_to_cdcacm.extract_idx = 0;
+
+	// Set the cdcacm receive callback
+	cdcacm_register_receive_callback(convert_cdcacm_receive_cb);
 }
 
 /**
- * Convert from PPRZ to DSMP
+ * Insert bytes into the cdcacm_to_radio buffer and return if there is enough space
  */
-void convert_pprz_dsmp(void) {
-	int i, readable_size;
-	u8 size, checksum_a, checksum_b;
+bool convert_cdcacm_to_radio_insert(u8 *data, u8 length) {
+	u8 i;
 
-	// Calculate the size we can read
-	if (transmit_convert.in_ptr <= transmit_convert.in_max_ptr)
-		readable_size = transmit_convert.in_ptr - transmit_convert.in_max_ptr;
-	else
-		readable_size = transmit_convert.in_ptr - transmit_convert.in_max_ptr + CONVERT_MAX_BUFFER;
+	// Check if there is enough space available in the buffer
+	if(convert_insert_size(&cdcacm_to_radio) < length+1)
+		return false;
 
-	// First we need to check if we have a full PPRZ message header in the transmit_convert read buffer
-	if (readable_size < 2)
-		return;
+	// Insert the data into the buffer with the length in front
+	cdcacm_to_radio.buffer[cdcacm_to_radio.insert_idx] = length+1;
+	for(i = 0; i < length; i++)
+		cdcacm_to_radio.buffer[(cdcacm_to_radio.insert_idx+i+1) % MAX_BUFFER] = data[i];
+	cdcacm_to_radio.insert_idx = (cdcacm_to_radio.insert_idx+ length+1) % MAX_BUFFER;
 
-	// When it isn't a PPRZ message (not starting with STX)
-	if (transmit_convert.in_buffer[transmit_convert.in_ptr] != 0x99) {
-		// Update the read pointer and try again
-		transmit_convert.in_ptr = (transmit_convert.in_ptr + 1) % CONVERT_MAX_BUFFER;
-		convert_pprz_dsmp();
-		return;
-	}
-
-	// Now read the size and test if we have the full package
-	size = transmit_convert.in_buffer[transmit_convert.in_ptr+1];
-	if (readable_size < size)
-		return;
-
-	// We now have the full package and can calculate the checksums
-	checksum_a = size;
-	checksum_b = size;
-	for (i = transmit_convert.in_ptr+2; i < transmit_convert.in_ptr+size-3; i++) {
-		checksum_a += transmit_convert.in_buffer[i];
-		checksum_b += checksum_a;
-	}
-
-	// When the checksums don't match
-	if (checksum_a != transmit_convert.in_buffer[transmit_convert.in_ptr+size-2] ||
-			checksum_b != transmit_convert.in_buffer[transmit_convert.in_ptr+size-1]) {
-		// Update the read pointer and try again
-		transmit_convert.in_ptr = (transmit_convert.in_ptr + 1) % CONVERT_MAX_BUFFER;
-		convert_pprz_dsmp();
-		return;
-	}
-
-	//TODO: Check if there is an overflow
-	// We now have a full PPRZ packet in the buffer and can copy the packet
-	transmit_convert.out_buffer[transmit_convert.out_max_ptr+1] = size-3;
-	memcpy(transmit_convert.out_buffer + transmit_convert.out_max_ptr + 1,
-			transmit_convert.out_buffer + transmit_convert.out_ptr + 2,
-			size - 4);
-	transmit_convert.out_max_ptr = (transmit_convert.out_max_ptr + size-4) % CONVERT_MAX_BUFFER;
-
-	// Update the read pointer
-	transmit_convert.out_ptr = (transmit_convert.out_ptr + size) % CONVERT_MAX_BUFFER;
-
-	//TODO: notify there is a packet for transmit
+	return true;
 }
 
 /**
- * Convert from DSMP to PPRZ
+ * Insert bytes into the radio_to_cdcacm buffer and return if there is enough space
  */
-void convert_dsmp_pprz(void) {
-	int i, readable_size;
-	u8 size, checksum_a, checksum_b;
+bool convert_radio_to_cdcacm_insert(u8 *data, u8 length) {
+	u8 i, packet_length;
+	// Check if there is enough space available in the buffer
+	if(convert_insert_size(&radio_to_cdcacm) < length)
+		return false;
 
-	// Calculate the size we can read
-	if (receive_convert.read_ptr <= receive_convert.read_max_ptr)
-		readable_size = receive_convert.read_ptr - receive_convert.read_max_ptr;
-	else
-		readable_size = receive_convert.read_ptr - receive_convert.read_max_ptr + CONVERT_MAX_BUFFER;
+	// Insert the data into the buffer
+	for(i = 0; i < length; i++)
+		radio_to_cdcacm.buffer[(radio_to_cdcacm.insert_idx+i) % MAX_BUFFER] = data[i];
+	radio_to_cdcacm.insert_idx = (radio_to_cdcacm.insert_idx+ length) % MAX_BUFFER;
 
-	// First we need to check if we have received the DSMP size
-	if (readable_size < 1)
-		return;
+	// Update the extract_idx to filter out empty data
+	while(radio_to_cdcacm.buffer[radio_to_cdcacm.extract_idx] == 0x00 && radio_to_cdcacm.extract_idx != radio_to_cdcacm.insert_idx)
+		radio_to_cdcacm.extract_idx = (radio_to_cdcacm.extract_idx + 1) % MAX_BUFFER;
 
-	// We can now read the size from the packet and check if we can fully read it
-	size = receive_convert.read_buffer[receive_convert.read_ptr];
-	if (readable_size < size)
-		return;
-
-	// Calculate the ckecksums
-	checksum_a = size + 3;
-	checksum_b = size + 3;
-	for (i = receive_convert.read_ptr+1; i < receive_convert.read_ptr+size-1; i++) {
-		checksum_a += receive_convert.read_buffer[i];
-		checksum_b += checksum_a;
+	// Check if the full packet is in the buffer
+	packet_length = radio_to_cdcacm.buffer[radio_to_cdcacm.extract_idx];
+	if(packet_length > 0 && packet_length <= convert_extract_size(&radio_to_cdcacm)) {
+		// Let cdcacm know that there is packet with a certain length
+		convert_cdcacm_send_cb(packet_length);
 	}
 
-	//TODO: Check if there is an overflow
-	// We got a full packet so can start converting
-	receive_convert.write_buffer[receive_convert.write_max_ptr] 		= 0x99; 	// Add the STX
-	receive_convert.write_buffer[receive_convert.write_max_ptr+1]		= size + 3;	// Add the size
-	memcpy(receive_convert.write_buffer + receive_convert.write_max_ptr + 1,
-			receive_convert.read_buffer + receive_convert.read_ptr + 1,
-				size - 1);
-	receive_convert.write_buffer[receive_convert.write_max_ptr+size+1] 	= checksum_a; 	// Add the Checksum A
-	receive_convert.write_buffer[receive_convert.write_max_ptr+size+2]	= checksum_b;	// Add the Checksum B
-	receive_convert.write_max_ptr = (receive_convert.write_max_ptr + size+2) % CONVERT_MAX_BUFFER;
+	return true;
+}
 
-	// Update the read pointer
-	receive_convert.read_ptr = (receive_convert.read_ptr + size) % CONVERT_MAX_BUFFER;
+/**
+ * Extract bytes from the buffer and return the number of bytes extracted
+ */
+u8 convert_extract(struct Buffer *buffer, u8 *data, u8 length) {
+	u8 i;
+	u8 real_length = convert_extract_size(buffer);
 
-	//TODO: notify there is a packet received
+	// Check the available bytes and see if we are sending less
+	if(real_length > length)
+		real_length = length;
+
+	// Receive the data from the buffer
+	for(i = 0; i < real_length; i++)
+		data[i] = buffer->buffer[(buffer->extract_idx+i) % MAX_BUFFER];
+
+	buffer->extract_idx = (buffer->extract_idx + real_length) % MAX_BUFFER;
+
+	return real_length;
+}
+
+/**
+ * The maximum insert size from the buffer
+ */
+u8 convert_insert_size(struct Buffer *buffer) {
+	return MAX_BUFFER - convert_extract_size(buffer);
+}
+
+/**
+ * The maximum extract size from the buffer
+ */
+u8 convert_extract_size(struct Buffer *buffer) {
+	if(buffer->extract_idx <= buffer->insert_idx)
+		return buffer->insert_idx - buffer->extract_idx;
+
+	return (buffer->insert_idx + MAX_BUFFER) - buffer->extract_idx;
+}
+
+/**
+ * The callback when cdcacm recevies something
+ */
+void convert_cdcacm_receive_cb(char *data, int size) {
+	convert_cdcacm_to_radio_insert((u8 *)data, size);
+}
+
+/**
+ * The callback when there is something to send to cdcacm
+ */
+void convert_cdcacm_send_cb(int size) {
+	u8 packet[size];
+	convert_extract(&radio_to_cdcacm, packet, size);
+	cdcacm_send((char *)packet, size);
 }

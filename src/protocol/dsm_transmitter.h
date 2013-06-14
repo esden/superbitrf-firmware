@@ -32,7 +32,6 @@ struct DsmTransmitter {
 	u16 packet_count;							/**< The amount of packets send */
 	u16 overflow_count;							/**< The amount of packets that didn't got an IRQ after sending */
 	u16 error_count;							/**< The number of send packet errors */
-	u8 packet[16];								/**< The packet that is send */
 };
 
 /* External functions */

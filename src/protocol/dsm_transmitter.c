@@ -23,12 +23,8 @@
 #include "../modules/cyrf6936.h"
 
 #include "dsm.h"
+#include "convert.h"
 #include "dsm_transmitter.h"
-
-#include <libopencm3/stm32/gpio.h>
-#include "../modules/led.h"
-#include <stdio.h>
-#include <string.h>
 
 /* The DSM transmitter struct */
 struct DsmTransmitter dsm_transmitter;
@@ -44,9 +40,6 @@ void dsm_transmitter_start_bind(void) {
 	// Stop the timer
 	timer_dsm_stop();
 
-	LED_ON(1);
-	LED_OFF(2);
-
 	// Set the status to bind and reset the packet count
 	dsm_transmitter.packet_count = 0;
 	dsm_transmitter.status = DSM_TRANSMITTER_BIND;
@@ -61,7 +54,7 @@ void dsm_transmitter_start_bind(void) {
 
 	// Create the bind packet and send
 	dsm_transmitter_create_bind_packet();
-	cyrf_send(dsm_transmitter.packet);
+	cyrf_send(dsm.transmit_packet);
 	dsm_transmitter.packet_count++;
 
 	// Enable the timer
@@ -75,14 +68,9 @@ void dsm_transmitter_start(void) {
 	// Stop the timer
 	timer_dsm_stop();
 
-	LED_OFF(1);
-	LED_ON(2);
-
 	// Set the status to ready and reset the packet count
 	dsm_transmitter.packet_count = 0;
 	dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
-
-	dsm_transmitter_create_data_packet();
 
 	// Start the timer
 	timer_dsm_set(DSM_CHA_CHB_SEND_TIME);
@@ -117,11 +105,13 @@ void dsm_transmitter_on_timer(void) {
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDB;
 
 		// TODO: create the packet
+		dsm_transmitter_create_data_packet();
 
 		// Send the packet
 		dsm_transmitter_send();
 
 		// TODO: receive telemetry
+		cyrf_start_recv();
 		break;
 	case DSM_TRANSMITTER_SENDB:
 		// Start the timer as first so we make sure the timing is right
@@ -134,11 +124,10 @@ void dsm_transmitter_on_timer(void) {
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
 
 		// TODO: create the packet
+		dsm_transmitter_create_data_packet();
 
 		// Send the packet
 		dsm_transmitter_send();
-
-		// TODO: receive telemetry
 		break;
 	default:
 		break;
@@ -150,7 +139,11 @@ void dsm_transmitter_on_timer(void) {
  * @param[in] error When the receive was with an error
  */
 void dsm_transmitter_on_receive(bool error) {
-	//TODO: Get the telemetry data
+	// Receive the data
+	cyrf_recv(dsm.receive_packet);
+
+	// Handle packet
+	convert_radio_to_cdcacm_insert(dsm.receive_packet, 16);
 }
 
 /**
@@ -163,6 +156,9 @@ void dsm_transmitter_on_send(bool error) {
 		dsm_transmitter.error_count++;
 
 	dsm_transmitter.sending = 0;
+
+	// Receive telemetry
+	cyrf_start_recv();
 }
 
 /**
@@ -172,57 +168,59 @@ static void dsm_transmitter_create_bind_packet(void) {
 	u8 i;
 	u16 sum = 384 - 0x10;
 
-	dsm_transmitter.packet[0] = ~dsm.cyrf_mfg_id[0];
-	dsm_transmitter.packet[1] = ~dsm.cyrf_mfg_id[1];
-	dsm_transmitter.packet[2] = ~dsm.cyrf_mfg_id[2];
-	dsm_transmitter.packet[3] = ~dsm.cyrf_mfg_id[3];
-	dsm_transmitter.packet[4] = dsm_transmitter.packet[0];
-	dsm_transmitter.packet[5] = dsm_transmitter.packet[1];
-	dsm_transmitter.packet[6] = dsm_transmitter.packet[2];
-	dsm_transmitter.packet[7] = dsm_transmitter.packet[3];
+	dsm.transmit_packet[0] = ~dsm.cyrf_mfg_id[0];
+	dsm.transmit_packet[1] = ~dsm.cyrf_mfg_id[1];
+	dsm.transmit_packet[2] = ~dsm.cyrf_mfg_id[2];
+	dsm.transmit_packet[3] = ~dsm.cyrf_mfg_id[3];
+	dsm.transmit_packet[4] = dsm.transmit_packet[0];
+	dsm.transmit_packet[5] = dsm.transmit_packet[1];
+	dsm.transmit_packet[6] = dsm.transmit_packet[2];
+	dsm.transmit_packet[7] = dsm.transmit_packet[3];
 
 	// Calculate the sum
 	for (i = 0; i < 8; i++)
-		sum += dsm_transmitter.packet[i];
+		sum += dsm.transmit_packet[i];
 
-	dsm_transmitter.packet[8] = sum >> 8;
-	dsm_transmitter.packet[9] = sum & 0xFF;
-	dsm_transmitter.packet[10] = 0x01; //???
-	dsm_transmitter.packet[11] = 0x00; // Number of channels, but we use own protocol
-	dsm_transmitter.packet[12] = dsm.protocol;
-	dsm_transmitter.packet[13] = 0x00; //???
+	dsm.transmit_packet[8] = sum >> 8;
+	dsm.transmit_packet[9] = sum & 0xFF;
+	dsm.transmit_packet[10] = 0x01; //???
+	dsm.transmit_packet[11] = 0x00; // Number of channels, but we use own protocol
+	dsm.transmit_packet[12] = dsm.protocol;
+	dsm.transmit_packet[13] = 0x00; //???
 
 	// Calculate the sum
 	for (i = 8; i < 14; i++)
-		sum += dsm_transmitter.packet[i];
+		sum += dsm.transmit_packet[i];
 
-	dsm_transmitter.packet[14] = sum >> 8;
-	dsm_transmitter.packet[15] = sum & 0xFF;
+	dsm.transmit_packet[14] = sum >> 8;
+	dsm.transmit_packet[15] = sum & 0xFF;
 }
 
+/**
+ * Create the transmitter data packet
+ */
 static void dsm_transmitter_create_data_packet(void) {
-	dsm_transmitter.packet[0] = dsm.cyrf_mfg_id[2];
-	dsm_transmitter.packet[1] = dsm.cyrf_mfg_id[3];
+	u8 packet_length, i;
+	// Set the first two bytes to the cyrf_mfg_id
+	dsm.transmit_packet[0] = dsm.cyrf_mfg_id[2];
+	dsm.transmit_packet[1] = dsm.cyrf_mfg_id[3];
+
+	// Fill as much bytes with data
+	packet_length = convert_extract(&cdcacm_to_radio, dsm.transmit_packet+2, 14);
+	// Clean the rest of the packet
+	for(i = packet_length + 2; i < 16; i++)
+		dsm.transmit_packet[i] = 0x00;
 }
 
 /**
  * Send the packet
  */
 static void dsm_transmitter_send(void) {
-	char cdc_msg[512];
-
-	sprintf(cdc_msg, "Packet send (channel %i): 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
-			dsm.cur_channel,
-			dsm_transmitter.packet[0], dsm_transmitter.packet[1], dsm_transmitter.packet[2], dsm_transmitter.packet[3], dsm_transmitter.packet[4], dsm_transmitter.packet[5],
-			dsm_transmitter.packet[6], dsm_transmitter.packet[7], dsm_transmitter.packet[8], dsm_transmitter.packet[9], dsm_transmitter.packet[10], dsm_transmitter.packet[11],
-			dsm_transmitter.packet[12], dsm_transmitter.packet[13], dsm_transmitter.packet[14], dsm_transmitter.packet[15]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-
 	// Check if already sending
 	if (dsm_transmitter.sending)
 		dsm_transmitter.overflow_count++;
 
-	cyrf_send(dsm_transmitter.packet);
+	cyrf_send(dsm.transmit_packet);
 	dsm_transmitter.packet_count++;
 	dsm_transmitter.sending = 1;
 }

@@ -107,6 +107,12 @@ void on_send(bool error) {
 
 int main(void)
 {
+	u8 sop_code[] = {
+		0x03, 0xE7, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8
+	};
+	u8 data_code[] = {
+		0x88, 0x17, 0x13, 0x3B, 0x2D, 0xBF, 0x06, 0xD6
+	};
 	rcc_clock_setup_in_hse_12mhz_out_72mhz();
 
 	// Initialize the modules
@@ -133,6 +139,11 @@ int main(void)
 
 	// Set the channel
 	cyrf_set_channel(0x61);
+
+	// Set some other stuff
+	cyrf_set_crc_seed(0x1A34);
+	cyrf_set_sop_code(sop_code);
+	cyrf_set_data_code(data_code);
 
 	// Set the timer or start receive
 #ifdef RECEIVER

@@ -28,6 +28,6 @@ typedef void (*cdcacm_receive_callback) (char *data, int size);
 void cdcacm_init(void);
 void cdcacm_run(void);
 void cdcacm_register_receive_callback(cdcacm_receive_callback callback);
-void cdcacm_send(const char *data, const int size);
+bool cdcacm_send(const char *data, const int size);
 
 #endif /* MODULES_CDCACM_H_ */

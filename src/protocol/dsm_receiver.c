@@ -18,19 +18,19 @@
  */
 
 #include <libopencm3/cm3/common.h>
+#include <libopencm3/stm32/gpio.h>
 #include "../modules/timer.h"
 #include "../modules/cyrf6936.h"
+#include "../modules/led.h"
 
 #include "dsm.h"
+#include "convert.h"
 #include "dsm_receiver.h"
-
-#include <libopencm3/stm32/gpio.h>
-#include "../modules/led.h"
-#include <stdio.h>
-#include <string.h>
 
 /* The DSM receiver struct */
 struct DsmReceiver dsm_receiver;
+
+static void dsm_receiver_create_data_packet(void);
 
 /**
  * Start the receiver binding
@@ -98,7 +98,7 @@ void dsm_receiver_on_timer(void) {
 		break;
 	case DSM_RECEIVER_SYNC_A:
 	case DSM_RECEIVER_SYNC_B:
-		LED_TOGGLE(POWER);
+		LED_ON(1);
 		// When we are in DSM2 mode we need to scan all channels
 		if(IS_DSM2(dsm.protocol)) {
 			// Set the next channel
@@ -108,17 +108,29 @@ void dsm_receiver_on_timer(void) {
 			dsm_set_next_channel();
 		}
 
-		cyrf_start_recv();
+		//cyrf_start_recv();
 
 		// Set the new timeout
 		timer_dsm_set(DSM_SYNC_RECV_TIME);
 		break;
 	case DSM_RECEIVER_RECV:
-		// We are out of sync and start syncing again
-		dsm_receiver.status = DSM_RECEIVER_SYNC_A;
+		if(!dsm_receiver.missed_packet) {
+			// When we only miss one packet there is no problem
+			dsm_receiver.missed_packet = true;
 
-		// Set the new timeout
-		timer_dsm_set(DSM_SYNC_RECV_TIME);
+			// We still have to go to the next channel
+			dsm_set_next_channel();
+			cyrf_start_recv();
+
+			// Start the timer
+			timer_dsm_set(DSM_RECV_TIME);
+		} else {
+			// We are out of sync and start syncing again
+			dsm_receiver.status = DSM_RECEIVER_SYNC_A;
+
+			// Set the new timeout
+			timer_dsm_set(DSM_SYNC_RECV_TIME);
+		}
 		break;
 	default:
 		break;
@@ -132,68 +144,55 @@ void dsm_receiver_on_timer(void) {
 void dsm_receiver_on_receive(bool error) {
 	int i;
 	u16 sum;
-	char cdc_msg[512];
+	//char cdc_msg[512];
 	u8 rx_status = cyrf_get_rx_status();
 
-	// If there is no error get the packet
-	//if (!error)
-		cyrf_recv(dsm_receiver.packet);
-	cyrf_start_recv();
+	// Get the packet
+	cyrf_recv(dsm.receive_packet);
 
-	// Inverse the total packet
-	if(dsm_receiver.status == DSM_RECEIVER_BIND) {
-		for(i = 0; i < 16; i++)
-			dsm_receiver.packet[i] = (~dsm_receiver.packet[i]) & 0xFF;
-	}
-
-	sprintf(cdc_msg, "Packet received: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
-			dsm_receiver.packet[0], dsm_receiver.packet[1], dsm_receiver.packet[2], dsm_receiver.packet[3], dsm_receiver.packet[4], dsm_receiver.packet[5],
-			dsm_receiver.packet[6], dsm_receiver.packet[7], dsm_receiver.packet[8], dsm_receiver.packet[9], dsm_receiver.packet[10], dsm_receiver.packet[11],
-			dsm_receiver.packet[12], dsm_receiver.packet[13], dsm_receiver.packet[14], dsm_receiver.packet[15]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
+	/*sprintf(cdc_msg, "Packet received: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+			dsm.receive_packet[0], dsm.receive_packet[1], dsm.receive_packet[2], dsm.receive_packet[3], dsm.receive_packet[4], dsm.receive_packet[5],
+			dsm.receive_packet[6], dsm.receive_packet[7], dsm.receive_packet[8], dsm.receive_packet[9], dsm.receive_packet[10], dsm.receive_packet[11],
+			dsm.receive_packet[12], dsm.receive_packet[13], dsm.receive_packet[14], dsm.receive_packet[15]);
+	cdcacm_send(cdc_msg, strlen(cdc_msg));*/
 
 	// Check the receiver status
 	switch (dsm_receiver.status) {
 	case DSM_RECEIVER_BIND:
 		// Check if there is an error and the MFG id is exactly the same twice
-		if (dsm_receiver.packet[0] != dsm_receiver.packet[4]
-				|| dsm_receiver.packet[1] != dsm_receiver.packet[5]
-				|| dsm_receiver.packet[2] != dsm_receiver.packet[6]
-				|| dsm_receiver.packet[3] != dsm_receiver.packet[7])
+		if (dsm.receive_packet[0] != dsm.receive_packet[4]
+				|| dsm.receive_packet[1] != dsm.receive_packet[5]
+				|| dsm.receive_packet[2] != dsm.receive_packet[6]
+				|| dsm.receive_packet[3] != dsm.receive_packet[7])
 			break;
-
-		sprintf(cdc_msg, "match\r\n");
-		cdcacm_send(cdc_msg, strlen(cdc_msg));
 
 		// Calculate the first sum
 		sum = 384 - 0x10;
 		for(i = 0; i < 8; i++)
-			sum += dsm_receiver.packet[i];
+			sum += dsm.receive_packet[i];
 
 		// Check the first sum
-		if (dsm_receiver.packet[8] != sum >> 8 || dsm_receiver.packet[9] != (sum & 0xFF))
+		if (dsm.receive_packet[8] != sum >> 8 || dsm.receive_packet[9] != (sum & 0xFF))
 			break;
 
 		// Calculate second sum
 		for(i = 8; i < 14; i++)
-			sum += dsm_receiver.packet[i];
+			sum += dsm.receive_packet[i];
 
 		// Check the second sum
-		if (dsm_receiver.packet[14] != sum >> 8 || dsm_receiver.packet[15] != (sum & 0xFF))
+		if (dsm.receive_packet[14] != sum >> 8 || dsm.receive_packet[15] != (sum & 0xFF))
 			break;
 
 		// Stop the timer
 		timer_dsm_stop();
 
 		// Update the mfg id, number of channels and protocol
-		dsm.cyrf_mfg_id[0] = ~dsm_receiver.packet[0];
-		dsm.cyrf_mfg_id[1] = ~dsm_receiver.packet[1];
-		dsm.cyrf_mfg_id[2] = ~dsm_receiver.packet[2];
-		dsm.cyrf_mfg_id[3] = ~dsm_receiver.packet[3];
-		dsm_receiver.num_channels = dsm_receiver.packet[11];
-		dsm.protocol = dsm_receiver.packet[12];
-
-		LED_TOGGLE(1);
+		dsm.cyrf_mfg_id[0] = ~dsm.receive_packet[0];
+		dsm.cyrf_mfg_id[1] = ~dsm.receive_packet[1];
+		dsm.cyrf_mfg_id[2] = ~dsm.receive_packet[2];
+		dsm.cyrf_mfg_id[3] = ~dsm.receive_packet[3];
+		dsm_receiver.num_channels = dsm.receive_packet[11];
+		dsm.protocol = dsm.receive_packet[12];
 
 		// Start receiver
 		dsm_start();
@@ -201,11 +200,8 @@ void dsm_receiver_on_receive(bool error) {
 	case DSM_RECEIVER_SYNC_A:
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm_receiver.packet[0] != dsm.cyrf_mfg_id[2] || dsm_receiver.packet[1] != dsm.cyrf_mfg_id[3])
+				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] || dsm.receive_packet[1] != dsm.cyrf_mfg_id[3])
 			break;
-
-		sprintf(cdc_msg, "SYNC1: %i\r\n", dsm.cur_channel);
-				cdcacm_send(cdc_msg, strlen(cdc_msg));
 
 		// Invert the CRC when received bad CRC
 		if (error && (rx_status & CYRF_BAD_CRC))
@@ -216,7 +212,7 @@ void dsm_receiver_on_receive(bool error) {
 
 		if(IS_DSM2(dsm.protocol)) {
 			// We now got one channel and need to find the other
-			if (dsm.crc_seed == ((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]))
+			if (dsm.crc_seed == ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]))
 				dsm.channels[0] = dsm.cur_channel;
 			else
 				dsm.channels[1] = dsm.cur_channel;
@@ -241,11 +237,8 @@ void dsm_receiver_on_receive(bool error) {
 	case DSM_RECEIVER_SYNC_B:
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm_receiver.packet[0] != dsm.cyrf_mfg_id[2] || dsm_receiver.packet[1] != dsm.cyrf_mfg_id[3])
+				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] || dsm.receive_packet[1] != dsm.cyrf_mfg_id[3])
 			break;
-
-		sprintf(cdc_msg, "SYNC2: %i\r\n", dsm.cur_channel);
-						cdcacm_send(cdc_msg, strlen(cdc_msg));
 
 		// Invert the CRC when received bad CRC
 		if (error && (rx_status & CYRF_BAD_CRC))
@@ -255,7 +248,7 @@ void dsm_receiver_on_receive(bool error) {
 		timer_dsm_stop();
 
 		// We now got the other channel and can start receiving
-		if (dsm.crc_seed == ((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1])) {
+		if (dsm.crc_seed == ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1])) {
 			dsm.channels[0] = dsm.cur_channel;
 			dsm.ch_idx = 0;
 		}
@@ -272,27 +265,28 @@ void dsm_receiver_on_receive(bool error) {
 		timer_dsm_set(DSM_RECV_TIME);
 		break;
 	case DSM_RECEIVER_RECV:
+		LED_OFF(1);
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm_receiver.packet[0] != dsm.cyrf_mfg_id[2] || dsm_receiver.packet[1] != dsm.cyrf_mfg_id[3])
+				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] || dsm.receive_packet[1] != dsm.cyrf_mfg_id[3])
 			break;
 
-		sprintf(cdc_msg, "RECV: %i\r\n", dsm.cur_channel);
-						cdcacm_send(cdc_msg, strlen(cdc_msg));
+		// Got a valid packet so reset the missed packet
+		dsm_receiver.missed_packet = false;
 
-		// Invert the CRC when received bad CRC TODO: not change crc seed
+		// Invert the CRC when received bad CRC TODO: check it was valid package
 		if (error && (rx_status & CYRF_BAD_CRC))
 			dsm.crc_seed = ~dsm.crc_seed;
 
 		// Stop the timer
 		timer_dsm_stop();
 
-		//TODO: Handle packet
+		// Handle packet
+		convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], 14);
 
-		//TODO: Send data back
-
-		// Set the next channel
-		dsm_set_next_channel();
+		// Send data back
+		dsm_receiver_create_data_packet();
+		cyrf_send(dsm.transmit_packet);
 
 		// Start the timer
 		timer_dsm_set(DSM_RECV_TIME);
@@ -300,6 +294,7 @@ void dsm_receiver_on_receive(bool error) {
 	default:
 		break;
 	}
+	cyrf_start_recv();
 }
 
 /**
@@ -307,5 +302,22 @@ void dsm_receiver_on_receive(bool error) {
  * @param[in] error When the send was with an error
  */
 void dsm_receiver_on_send(bool error) {
-	// We can just ignore this to make sure we keep sync
+	// Set the next channel
+	dsm_set_next_channel();
+	cyrf_start_recv();
+}
+
+/**
+ * Create the receiver data packet
+ */
+static void dsm_receiver_create_data_packet(void) {
+	u8 packet_length, i;
+	char cdc_msg[512];
+
+	// Fill as much bytes with data
+	packet_length = convert_extract(&cdcacm_to_radio, dsm.transmit_packet, 16);
+
+	// Clean the rest of the packet
+	for(i = packet_length; i < 16; i++)
+		dsm.transmit_packet[i] = 0x00;
 }

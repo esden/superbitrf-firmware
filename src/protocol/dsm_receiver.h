@@ -30,7 +30,7 @@ enum dsm_receiver_status {
 struct DsmReceiver {
 	enum dsm_receiver_status status;			/**< The receiver status */
 	u8 num_channels;							/**< The number of channels the transmitter is sending information over (not RF channels) */
-	u8 packet[16];								/**< The received packet */
+	bool missed_packet;							/**< When it misses one packet it is true, and doesn't try to resync right away */
 };
 
 /* External functions */

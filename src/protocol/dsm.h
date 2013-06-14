@@ -37,8 +37,8 @@
 /* All times are in microseconds divided by 10 */
 #define DSM_BIND_RECV_TIME			1200		/**< Time before timeout when receiving bind packets */
 #define DSM_SYNC_RECV_TIME			2400		/**< Time before timeout when trying to sync */
-#define DSM_SYNC_FRECV_TIME			80000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
-#define DSM_RECV_TIME				2400		/**< Time before timeout when trying to receive */
+#define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
+#define DSM_RECV_TIME				1200		/**< Time before timeout when trying to receive */
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
 #define DSM_SEND_TIME				1100		/**< Time between sending both Channel A and Channel B */
 #define DSM_CHA_CHB_SEND_TIME		401			/**< Time between Channel A and Channel B send */
@@ -70,6 +70,8 @@ struct Dsm {
 	u16 crc_seed;					/**< The current CRC seed */
 	u8 sop_col;						/**< The calculated SOP column */
 	u8 data_col;					/**< The calculated data column */
+	u8 transmit_packet[16];			/**< The packet that gets transmitted */
+	u8 receive_packet[16];			/**< The packet that gets received */
 };
 extern struct Dsm dsm;
 

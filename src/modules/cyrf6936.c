@@ -319,6 +319,14 @@ void cyrf_set_data_code(const u8 *datacode) {
 }
 
 /**
+ * Set the 8 byte data code
+ * @param[in] datacode The 16 bytes data code
+ */
+void cyrf_set_data_code_small(const u8 *datacode) {
+	cyrf_write_block(CYRF_DATA_CODE, datacode, 8);
+}
+
+/**
  * Set the preamble
  * @param[in] preamble The 3 bytes preamble
  */
@@ -372,6 +380,7 @@ void cyrf_set_tx_override(const u8 override) {
  * @param[in] length The length of the data
  */
 void cyrf_send_len(const u8 *data, const u8 length) {
+	cyrf_set_mode(CYRF_MODE_SYNTH_TX, 1);
 	cyrf_write_register(CYRF_TX_LENGTH, length);
 	cyrf_write_register(CYRF_TX_CTRL, CYRF_TX_CLR);
 	cyrf_write_block(CYRF_TX_BUFFER, data, length);

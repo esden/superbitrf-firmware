@@ -18,6 +18,7 @@
  */
 
 #include <stdlib.h>
+#include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/f1/rcc.h>
 #include <libopencm3/stm32/f1/gpio.h>
 #include <libopencm3/usb/usbd.h>
@@ -293,12 +294,12 @@ void cdcacm_register_receive_callback(cdcacm_receive_callback callback) {
  * @param[in] data The data that needs to be send
  * @param[in] size The size of the data in bytes
  */
-void cdcacm_send(const char *data, const int size) {
+bool cdcacm_send(const char *data, const int size) {
 	int i = 0;
 
 	// When a host is connected TODO: Fix nicely
 	if(!is_connected)
-		return;
+		return false;
 
 	while ((size - (i * 64)) > 64) {
 		while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);
@@ -306,4 +307,6 @@ void cdcacm_send(const char *data, const int size) {
 	}
 
 	while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), size - (i * 64)) == 0);
+
+	return true;
 }

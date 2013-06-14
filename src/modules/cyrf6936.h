@@ -226,6 +226,7 @@ void cyrf_set_mode(const u8 mode, const bool force);
 void cyrf_set_crc_seed(const u16 crc);
 void cyrf_set_sop_code(const u8 *sopcode);
 void cyrf_set_data_code(const u8 *datacode);
+void cyrf_set_data_code_small(const u8 *datacode);
 void cyrf_set_preamble(const u8 *preamble);
 void cyrf_set_framing_cfg(const u8 config);
 void cyrf_set_rx_cfg(const u8 config);
