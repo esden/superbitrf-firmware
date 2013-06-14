@@ -104,13 +104,13 @@ void dsm_transmitter_on_timer(void) {
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDB;
 
-		// TODO: create the packet
+		// Create the packet
 		dsm_transmitter_create_data_packet();
 
 		// Send the packet
 		dsm_transmitter_send();
 
-		// TODO: receive telemetry
+		// Receive a packet
 		cyrf_start_recv();
 		break;
 	case DSM_TRANSMITTER_SENDB:
@@ -123,10 +123,7 @@ void dsm_transmitter_on_timer(void) {
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
 
-		// TODO: create the packet
-		dsm_transmitter_create_data_packet();
-
-		// Send the packet
+		// Send the same packet again packet
 		dsm_transmitter_send();
 		break;
 	default:
@@ -157,7 +154,7 @@ void dsm_transmitter_on_send(bool error) {
 
 	dsm_transmitter.sending = 0;
 
-	// Receive telemetry
+	// Start receiving for data back in
 	cyrf_start_recv();
 }
 

@@ -271,9 +271,6 @@ void dsm_receiver_on_receive(bool error) {
 				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] || dsm.receive_packet[1] != dsm.cyrf_mfg_id[3])
 			break;
 
-		// Got a valid packet so reset the missed packet
-		dsm_receiver.missed_packet = false;
-
 		// Invert the CRC when received bad CRC TODO: check it was valid package
 		if (error && (rx_status & CYRF_BAD_CRC))
 			dsm.crc_seed = ~dsm.crc_seed;
@@ -281,11 +278,22 @@ void dsm_receiver_on_receive(bool error) {
 		// Stop the timer
 		timer_dsm_stop();
 
-		// Handle packet
-		convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], 14);
+		// When we missed a packet we didn't parse it
+		if(dsm_receiver.missed_packet)
+			dsm.parsed_packet = false;
+
+		// When we parsed the first packet we doesn't need to parse the second
+		if(!dsm.parsed_packet) {
+			convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], 14);
+			dsm.parsed_packet = true;
+		} else
+			dsm.parsed_packet = false;
+
+		// Got a valid packet so reset the missed packet
+		dsm_receiver.missed_packet = false;
 
 		// Send data back
-		dsm_receiver_create_data_packet();
+		dsm_receiver_create_data_packet(); //TODO: Fix that it sends twice the same packet?
 		cyrf_send(dsm.transmit_packet);
 
 		// Start the timer

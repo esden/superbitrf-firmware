@@ -136,8 +136,9 @@ void dsm_start_bind(void) {
 	memcpy(data_code + 8, pn_bind, 8);
 	cyrf_set_data_code(data_code);
 
-	// Update the status
+	// Update the status and set parsed to false
 	dsm.status = DSM_BIND;
+	dsm.parsed_packet = false;
 
 	// Check if receiver or transmitter
 #ifdef DSM_TRANSMITTER
@@ -206,20 +207,12 @@ static void dsm_generate_channels(void) {
  * Start with sending/receiving
  */
 void dsm_start(void) {
-	u8 sop_code[] = {
-		0xDF, 0x22, 0x12, 0xFF, 0x3E, 0x43, 0xFF, 0x41
-		//pn_codes[pn_row][dsm.sop_col][0], pn_codes[pn_row][dsm.sop_col][1], pn_codes[pn_row][dsm.sop_col][2], pn_codes[pn_row][dsm.sop_col][3], pn_codes[pn_row][dsm.sop_col][4], pn_codes[pn_row][dsm.sop_col][5], pn_codes[pn_row][dsm.sop_col][6], pn_codes[pn_row][dsm.sop_col][7]
-	};
-
 	// Set the CYRF configuration
 	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
 	cyrf_set_tx_cfg(CYRF_DATA_MODE_8DR | CYRF_PA_4); // Enable 32 chip codes, 8DR mode and amplifier +4dBm
 	cyrf_set_rx_override(0x0); // Reset the rx override
 	cyrf_set_tx_override(0x0); // Reset the tx override
 	cyrf_set_framing_cfg(CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE); // Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
-
-
-	cyrf_set_sop_code(sop_code);
 
 	// Set the leds
 	LED_OFF(1);
@@ -250,19 +243,18 @@ void dsm_start(void) {
  * @param[in] channel The channel that needs to be set
  */
 void dsm_set_channel(u8 channel) {
-	char cdc_msg[512];
-	//u8 sop_code[16];
 	u8 pn_row;
 	dsm.cur_channel = channel;
 
+	//TODO: Fix DATA code and sop code
 	pn_row = IS_DSM2(dsm.protocol)? channel % 5 : (channel - 2) % 5;
 	u8 data_code[] = {
 		pn_codes[pn_row][dsm.data_col][0], pn_codes[pn_row][dsm.data_col][1], pn_codes[pn_row][dsm.data_col][2], pn_codes[pn_row][dsm.data_col][3], pn_codes[pn_row][dsm.data_col][4], pn_codes[pn_row][dsm.data_col][5], pn_codes[pn_row][dsm.data_col][6], pn_codes[pn_row][dsm.data_col][7],
 		0xC6, 0x94, 0x21, 0xAB, 0x48, 0xE6, 0x57, 0x31
 	};
-	u8 sop_code[] = {
+	/*u8 sop_code[] = {
 		pn_codes[pn_row][dsm.sop_col][0], pn_codes[pn_row][dsm.sop_col][1], pn_codes[pn_row][dsm.sop_col][2], pn_codes[pn_row][dsm.sop_col][3], pn_codes[pn_row][dsm.sop_col][4], pn_codes[pn_row][dsm.sop_col][5], pn_codes[pn_row][dsm.sop_col][6], pn_codes[pn_row][dsm.sop_col][7]
-	};
+	};*/
 
 	cyrf_set_channel(channel);
 
@@ -272,11 +264,6 @@ void dsm_set_channel(u8 channel) {
 	//cyrf_set_sop_code(sop_code);
 	//cyrf_read_block(CYRF_SOP_CODE, sop_code, 8);
 	cyrf_set_data_code(data_code);
-
-	/*sprintf(cdc_msg, "channel: %i %i %i %i 0x%04X\r\n0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
-			channel, pn_row, dsm.sop_col, dsm.data_col, dsm.crc_seed,
-			sop_code[0], sop_code[1], sop_code[2], sop_code[3], sop_code[4], sop_code[5], sop_code[6], sop_code[7]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));*/
 }
 
 /**

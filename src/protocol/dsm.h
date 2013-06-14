@@ -72,6 +72,7 @@ struct Dsm {
 	u8 data_col;					/**< The calculated data column */
 	u8 transmit_packet[16];			/**< The packet that gets transmitted */
 	u8 receive_packet[16];			/**< The packet that gets received */
+	bool parsed_packet;				/**< This gets set to true when the last packet was parsed */
 };
 extern struct Dsm dsm;
 
