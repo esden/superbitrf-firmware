@@ -17,8 +17,8 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/gpio.h>
 #include "../modules/timer.h"
@@ -29,9 +29,10 @@
 #include "dsm_receiver.h"
 #include "dsm_transmitter.h"
 
+#if DEBUG && DEBUG_DSM
 #include "../modules/cdcacm.h"
 #include <stdio.h>
-#include <string.h>
+#endif
 
 /* The DSM struct */
 struct Dsm dsm;
@@ -96,10 +97,16 @@ static const u8 pn_codes[5][9][8] = {
 };
 static const u8 pn_bind[] = { 0xc6,0x94,0x22,0xfe,0x48,0xe6,0x57,0x4e };
 
+static void dsm_generate_channels(void);
+
 /**
  * Initialize DSM
  */
 void dsm_init(void) {
+#if DEBUG && DEBUG_DSM
+	sprintf(cdc_msg, "DSM START INIT\r\n");
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
 	// Read the CYRF MFG
 	cyrf_get_mfg_id(dsm.cyrf_mfg_id);
 
@@ -119,8 +126,13 @@ void dsm_init(void) {
  * Start with binding
  */
 void dsm_start_bind(void) {
+#if DEBUG && DEBUG_DSM
+	sprintf(cdc_msg, "DSM START BIND\r\n");
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
 	u8 data_code[16];
 	// Set the CYRF configuration
+	cyrf_init_config();
 	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
 	cyrf_set_tx_cfg(CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4); // Enable 64 chip codes, SDR mode and amplifier +4dBm
 	cyrf_set_rx_override(CYRF_FRC_RXDR | CYRF_DIS_RXCRC); // Force receive data rate and disable receive CRC checker
@@ -136,15 +148,58 @@ void dsm_start_bind(void) {
 	memcpy(data_code + 8, pn_bind, 8);
 	cyrf_set_data_code(data_code);
 
-	// Update the status and set parsed to false
+	// Update the status
 	dsm.status = DSM_BIND;
-	dsm.parsed_packet = false;
 
 	// Check if receiver or transmitter
 #ifdef DSM_TRANSMITTER
 	dsm_transmitter_start_bind();
 #else
 	dsm_receiver_start_bind();
+#endif
+}
+
+/**
+ * Start with sending/receiving
+ */
+void dsm_start(void) {
+#if DEBUG && DEBUG_DSM
+	sprintf(cdc_msg, "DSM START\r\n");
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
+	// Set the CYRF configuration
+	cyrf_init_config();
+	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
+	cyrf_set_tx_cfg(CYRF_DATA_MODE_8DR | CYRF_PA_4); // Enable 32 chip codes, 8DR mode and amplifier +4dBm
+	cyrf_set_rx_override(0x0); // Reset the rx override
+	cyrf_set_tx_override(0x0); // Reset the tx override
+	cyrf_set_framing_cfg(CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE); // Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
+
+	// Set the leds
+	LED_OFF(1);
+	LED_ON(2);
+
+	// Generate the channels
+	dsm_generate_channels();
+
+	// Calculate the CRC seed, SOP column and Data column
+	dsm.crc_seed = ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]);
+	dsm.sop_col = (dsm.cyrf_mfg_id[0] + dsm.cyrf_mfg_id[1] + dsm.cyrf_mfg_id[2] + 2) & 0x07;
+	dsm.data_col = 7 - dsm.sop_col;
+
+	// Update the status and set channel id to the last
+	dsm.status = DSM_RDY;
+	dsm.ch_idx = IS_DSM2(dsm.protocol)? 1 : 22;
+
+	// Reset the packet loss detection
+	dsm.packet_loss_bit = false;
+	dsm.packet_loss = false;
+
+	// Check if receiver or transmitter
+#ifdef DSM_TRANSMITTER
+	dsm_transmitter_start();
+#else
+	dsm_receiver_start();
 #endif
 }
 
@@ -204,41 +259,6 @@ static void dsm_generate_channels(void) {
 }
 
 /**
- * Start with sending/receiving
- */
-void dsm_start(void) {
-	// Set the CYRF configuration
-	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
-	cyrf_set_tx_cfg(CYRF_DATA_MODE_8DR | CYRF_PA_4); // Enable 32 chip codes, 8DR mode and amplifier +4dBm
-	cyrf_set_rx_override(0x0); // Reset the rx override
-	cyrf_set_tx_override(0x0); // Reset the tx override
-	cyrf_set_framing_cfg(CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE); // Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
-
-	// Set the leds
-	LED_OFF(1);
-	LED_ON(2);
-
-	// Generate the channels
-	dsm_generate_channels();
-
-	// Calculate the CRC seed, SOP column and Data column
-	dsm.crc_seed = ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]);
-	dsm.sop_col = (dsm.cyrf_mfg_id[0] + dsm.cyrf_mfg_id[1] + dsm.cyrf_mfg_id[2] + 2) & 0x07;
-	dsm.data_col = 7 - dsm.sop_col;
-
-	// Update the status and set channel id to the last
-	dsm.status = DSM_RDY;
-	dsm.ch_idx = IS_DSM2(dsm.protocol)? 1 : 22;
-
-	// Check if receiver or transmitter
-#ifdef DSM_TRANSMITTER
-	dsm_transmitter_start();
-#else
-	dsm_receiver_start();
-#endif
-}
-
-/**
  * Set the current channel with SOP, CRC and data code
  * @param[in] channel The channel that needs to be set
  */
@@ -248,22 +268,21 @@ void dsm_set_channel(u8 channel) {
 
 	//TODO: Fix DATA code and sop code
 	pn_row = IS_DSM2(dsm.protocol)? channel % 5 : (channel - 2) % 5;
-	u8 data_code[] = {
-		pn_codes[pn_row][dsm.data_col][0], pn_codes[pn_row][dsm.data_col][1], pn_codes[pn_row][dsm.data_col][2], pn_codes[pn_row][dsm.data_col][3], pn_codes[pn_row][dsm.data_col][4], pn_codes[pn_row][dsm.data_col][5], pn_codes[pn_row][dsm.data_col][6], pn_codes[pn_row][dsm.data_col][7],
-		0xC6, 0x94, 0x21, 0xAB, 0x48, 0xE6, 0x57, 0x31
-	};
-	/*u8 sop_code[] = {
-		pn_codes[pn_row][dsm.sop_col][0], pn_codes[pn_row][dsm.sop_col][1], pn_codes[pn_row][dsm.sop_col][2], pn_codes[pn_row][dsm.sop_col][3], pn_codes[pn_row][dsm.sop_col][4], pn_codes[pn_row][dsm.sop_col][5], pn_codes[pn_row][dsm.sop_col][6], pn_codes[pn_row][dsm.sop_col][7]
-	};*/
 
+#if DEBUG && DEBUG_DSM
+	sprintf(cdc_msg, "DSM SET CHANNEL: 0x%02X (mfg_id[0]: 0x%02X, mfg_id[1]: 0x%02X, mfg_id[2]: 0x%02X, mfg_id[3]: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X)\r\n",
+			channel, dsm.cyrf_mfg_id[0], dsm.cyrf_mfg_id[1], dsm.cyrf_mfg_id[2], dsm.cyrf_mfg_id[3], pn_row, dsm.data_col, dsm.sop_col);
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
+
+	// Change channel
 	cyrf_set_channel(channel);
 
 	// Update the CRC, SOP and Data code
 	dsm.crc_seed = ~dsm.crc_seed;
 	cyrf_set_crc_seed(dsm.crc_seed);
-	//cyrf_set_sop_code(sop_code);
-	//cyrf_read_block(CYRF_SOP_CODE, sop_code, 8);
-	cyrf_set_data_code(data_code);
+	cyrf_set_sop_code(pn_codes[pn_row][dsm.sop_col]);
+	cyrf_set_data_code(pn_codes[pn_row][dsm.data_col]);
 }
 
 /**

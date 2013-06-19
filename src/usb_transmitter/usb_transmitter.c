@@ -39,6 +39,11 @@ int main(void) {
 	button_init();
 	timer_init();
 	cdcacm_init();
+
+#ifdef DEBUG
+	while(!cdcacm_is_connected) cdcacm_run();
+#endif
+
 	cyrf_init();
 	convert_init();
 

@@ -26,6 +26,10 @@
 
 #include "cdcacm.h"
 
+#if DEBUG
+char cdc_msg[512];
+#endif
+
 // The recieve callback
 cdcacm_receive_callback _cdcacm_receive_callback = NULL;
 // The usbd device
@@ -33,7 +37,7 @@ usbd_device *cdacm_usbd_dev = NULL;
 // The usbd control buffer
 u8 cdacm_usbd_control_buffer[128];
 // When the device is connected TODO: Fix nicely
-u8 is_connected = 0;
+u8 cdcacm_is_connected = 0;
 
 // The usb device descriptor
 static const struct usb_device_descriptor dev = {
@@ -215,7 +219,7 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, u8 ep) {
 
 	char buf[64];
 	int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, 64);
-	is_connected = 1;
+	cdcacm_is_connected = 1;
 
 	if (len) {
 		//sprintf(buf, "test: 0x%02X 0x%02X 0x%02X 0x%02X", dsm.cyrf_mfg_id[0], dsm.cyrf_mfg_id[1], dsm.cyrf_mfg_id[2], dsm.cyrf_mfg_id[3]);
@@ -298,8 +302,8 @@ bool cdcacm_send(const char *data, const int size) {
 	int i = 0;
 
 	// When a host is connected TODO: Fix nicely
-	if(!is_connected)
-		return false;
+	//if(!cdcacm_is_connected)
+		//return false;
 
 	while ((size - (i * 64)) > 64) {
 		while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);

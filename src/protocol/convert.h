@@ -20,11 +20,11 @@
 #ifndef PROTOCOL_CONVERT_H_
 #define PROTOCOL_CONVERT_H_
 
-#define MAX_BUFFER			250
+#define MAX_BUFFER			2048
 
 struct Buffer {
-	u8 insert_idx;
-	u8 extract_idx;
+	u16 insert_idx;
+	u16 extract_idx;
 	u8 buffer[MAX_BUFFER];
 };
 
@@ -34,12 +34,12 @@ extern struct Buffer radio_to_cdcacm;
 
 /* The external functions */
 void convert_init(void);
-bool convert_cdcacm_to_radio_insert(u8 *data, u8 length);
-bool convert_radio_to_cdcacm_insert(u8 *data, u8 length);
-u8 convert_extract(struct Buffer *buffer, u8 *data, u8 length);
-u8 convert_insert_size(struct Buffer *buffer);
-u8 convert_extract_size(struct Buffer *buffer);
+bool convert_cdcacm_to_radio_insert(u8 *data, u16 length);
+bool convert_radio_to_cdcacm_insert(u8 *data, u16 length);
+u16 convert_extract(struct Buffer *buffer, u8 *data, u16 length);
+u16 convert_insert_size(struct Buffer *buffer);
+u16 convert_extract_size(struct Buffer *buffer);
 void convert_cdcacm_receive_cb(char *data, int size);
-void convert_cdcacm_send_cb(int size);
+void convert_cdcacm_send_cb(void);
 
 #endif /* PROTOCOL_CONVERT_H_ */

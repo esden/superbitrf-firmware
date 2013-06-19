@@ -20,6 +20,7 @@
 #ifndef BOARD_H_
 #define BOARD_H_
 
+
 /* Define the LEDS (optional) */
 #define USE_LED_POWER				1								/**< If the board has a Power led */
 #define LED_POWER_GPIO_PORT			GPIOB							/**< The Power led GPIO port */

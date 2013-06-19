@@ -25,6 +25,11 @@
 
 typedef void (*cdcacm_receive_callback) (char *data, int size);
 
+#if DEBUG
+extern u8 cdcacm_is_connected;
+extern char cdc_msg[512];
+#endif
+
 void cdcacm_init(void);
 void cdcacm_run(void);
 void cdcacm_register_receive_callback(cdcacm_receive_callback callback);

@@ -34,15 +34,22 @@
 #define DSM_PROTOCOL				DSM_DSMXP
 #endif
 
+#define DSM_BIND_CHANNEL			0x0D
+
 /* All times are in microseconds divided by 10 */
-#define DSM_BIND_RECV_TIME			1200		/**< Time before timeout when receiving bind packets */
+#define DSM_BIND_RECV_TIME			1800		/**< Time before timeout when receiving bind packets */
 #define DSM_SYNC_RECV_TIME			2400		/**< Time before timeout when trying to sync */
 #define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
 #define DSM_RECV_TIME				1200		/**< Time before timeout when trying to receive */
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
 #define DSM_SEND_TIME				1100		/**< Time between sending both Channel A and Channel B */
 #define DSM_CHA_CHB_SEND_TIME		401			/**< Time between Channel A and Channel B send */
+
+#ifdef DEBUG
+#define DSM_BIND_SEND_COUNT			3			/**< The number of bind packets to send */
+#else
 #define DSM_BIND_SEND_COUNT			300			/**< The number of bind packets to send */
+#endif
 
 enum dsm_protocol {
 	DSM_DSM2_1			= 0x01,		/**< The original DSM2 protocol with 1 packet of data */
@@ -71,8 +78,10 @@ struct Dsm {
 	u8 sop_col;						/**< The calculated SOP column */
 	u8 data_col;					/**< The calculated data column */
 	u8 transmit_packet[16];			/**< The packet that gets transmitted */
+	u8 transmit_packet_length;		/**< THe length of the transmit packet */
 	u8 receive_packet[16];			/**< The packet that gets received */
-	bool parsed_packet;				/**< This gets set to true when the last packet was parsed */
+	u8 packet_loss_bit;				/**< This bit is used to detect packet loss */
+	bool packet_loss;				/**< This is set when a packet loss is detected*/
 };
 extern struct Dsm dsm;
 
