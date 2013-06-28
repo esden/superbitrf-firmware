@@ -216,7 +216,6 @@ void cyrf_write_block(const u8 address, const u8 data[], const int length);
 u8   cyrf_read_register(const u8 address);
 void cyrf_read_block(const u8 address, u8 *data, const int length);
 
-void cyrf_init_config(void);
 void cyrf_get_mfg_id(u8 *mfg);
 u8   cyrf_get_rssi(void);
 u8   cyrf_get_rx_status(void);

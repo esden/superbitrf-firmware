@@ -49,7 +49,7 @@ void dsm_receiver_start_bind(void) {
 #ifdef DSM_BIND_CHANNEL
 	dsm_set_channel_raw(DSM_BIND_CHANNEL);
 #else
-	dsm_set_channel_raw(0);
+	dsm_set_channel_raw(1);
 #endif
 
 	// Set the status to bind
@@ -70,20 +70,20 @@ void dsm_receiver_start(void) {
 	timer_dsm_stop();
 
 	// Update the channel (goes to first because of ch_id = last) and set to SYNC
-	if(IS_DSM2(dsm.protocol))
+	//if(IS_DSM2(dsm.protocol))
 		dsm_set_channel(0);
-	else
-		dsm_set_next_channel();
+	//else
+	//	dsm_set_next_channel(); FIXME
 	dsm_receiver.status = DSM_RECEIVER_SYNC_A;
 
 	// Start receiving
 	cyrf_start_recv();
 
 	// Enable the timer
-	if(IS_DSM2(dsm.protocol))
+	//if(IS_DSM2(dsm.protocol))
 		timer_dsm_set(DSM_SYNC_RECV_TIME);
-	else
-		timer_dsm_set(DSM_SYNC_FRECV_TIME); // Because we know for sure where DSMX starts we can wait the full bind
+	//else
+	//	timer_dsm_set(DSM_SYNC_FRECV_TIME); // Because we know for sure where DSMX starts we can wait the full bind FIXME
 }
 
 /**
@@ -91,13 +91,22 @@ void dsm_receiver_start(void) {
  */
 void dsm_receiver_on_timer(void) {
 	u8 rx_irq_status;
+
+	// Abort the receive
+	cyrf_write_register(CYRF_RX_ABORT, 0x20); //TODO: CYRF_RX_ABORT_EN
+	cyrf_set_mode(CYRF_MODE_SYNTH_RX, true);
+	cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+
 	// Check the receiver status
 	switch (dsm_receiver.status) {
 	case DSM_RECEIVER_BIND:
 #ifndef DSM_BIND_CHANNEL
 		// Update the channel
-		dsm_set_channel_raw((dsm.cur_channel + 1) % DSM_MAX_CHANNEL);
+		dsm_set_channel_raw((dsm.cur_channel + 2) % DSM_MAX_CHANNEL);
 #endif
+
+		// Start receiving
+		cyrf_start_recv();
 
 		// Set the new timeout
 		timer_dsm_set(DSM_BIND_RECV_TIME);
@@ -106,7 +115,7 @@ void dsm_receiver_on_timer(void) {
 	case DSM_RECEIVER_SYNC_B:
 		LED_ON(1);
 		// When we are in DSM2 mode we need to scan all channels
-		if(IS_DSM2(dsm.protocol)) {
+		if(true) {
 			// Set the next channel
 			dsm_set_channel((dsm.cur_channel + 1) % DSM_MAX_CHANNEL);
 		} else {
@@ -157,16 +166,21 @@ void dsm_receiver_on_receive(bool error) {
 	// Get the packet
 	cyrf_recv_len(dsm.receive_packet, length);
 
+	// Abort the receive
+	cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END);
+	cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+
 	// Check if length bigger then to
 	if(length < 2)
 		return;
 
 #if DEBUG
-	sprintf(cdc_msg, "DSM RECEIVE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+	sprintf(cdc_msg, "DSM RECEIVE(0x%02X): [0x%02X 0x%02X] 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+			dsm.cur_channel, ~dsm.cyrf_mfg_id[2], ~dsm.cyrf_mfg_id[3],
 			dsm.receive_packet[0], dsm.receive_packet[1], dsm.receive_packet[2], dsm.receive_packet[3], dsm.receive_packet[4], dsm.receive_packet[5],
 			dsm.receive_packet[6], dsm.receive_packet[7], dsm.receive_packet[8], dsm.receive_packet[9], dsm.receive_packet[10], dsm.receive_packet[11],
 			dsm.receive_packet[12], dsm.receive_packet[13], dsm.receive_packet[14], dsm.receive_packet[15]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
+	//cdcacm_send(cdc_msg, strlen(cdc_msg));
 #endif
 
 	// Check the receiver status
@@ -176,8 +190,12 @@ void dsm_receiver_on_receive(bool error) {
 		if (dsm.receive_packet[0] != dsm.receive_packet[4]
 				|| dsm.receive_packet[1] != dsm.receive_packet[5]
 				|| dsm.receive_packet[2] != dsm.receive_packet[6]
-				|| dsm.receive_packet[3] != dsm.receive_packet[7])
+				|| dsm.receive_packet[3] != dsm.receive_packet[7]) {
+			//FIXME
+			// Set the new timeout
+			timer_dsm_set(DSM_BIND_RECV_TIME);
 			break;
+		}
 
 		// Calculate the first sum
 		sum = 384 - 0x10;
@@ -206,6 +224,16 @@ void dsm_receiver_on_receive(bool error) {
 		dsm.cyrf_mfg_id[3] = ~dsm.receive_packet[3];
 		dsm_receiver.num_channels = dsm.receive_packet[11];
 		dsm.protocol = dsm.receive_packet[12];
+		dsm.resolution = (dsm.protocol & 0x10)>>4;
+
+#if DEBUG
+	sprintf(cdc_msg, "DSM RECEIVE(0x%02X): [0x%02X 0x%02X] 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+			dsm.cur_channel, ~dsm.cyrf_mfg_id[2], ~dsm.cyrf_mfg_id[3],
+			dsm.receive_packet[0], dsm.receive_packet[1], dsm.receive_packet[2], dsm.receive_packet[3], dsm.receive_packet[4], dsm.receive_packet[5],
+			dsm.receive_packet[6], dsm.receive_packet[7], dsm.receive_packet[8], dsm.receive_packet[9], dsm.receive_packet[10], dsm.receive_packet[11],
+			dsm.receive_packet[12], dsm.receive_packet[13], dsm.receive_packet[14], dsm.receive_packet[15]);
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
 
 		// Start receiver
 		dsm_start();
@@ -213,10 +241,14 @@ void dsm_receiver_on_receive(bool error) {
 	case DSM_RECEIVER_SYNC_A:
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
-				(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] && dsm.receive_packet[1] != dsm.cyrf_mfg_id[3]+1))
+				|| dsm.receive_packet[0] != (~dsm.cyrf_mfg_id[2]&0xFF) ||
+				(dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF) && dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF)+1))
 			break;
 
+#if DEBUG
+	sprintf(cdc_msg, "SYNC A\r\n");
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
 		// Invert the CRC when received bad CRC
 		if (error && (rx_status & CYRF_BAD_CRC))
 			dsm.crc_seed = ~dsm.crc_seed;
@@ -224,35 +256,35 @@ void dsm_receiver_on_receive(bool error) {
 		// Stop the timer
 		timer_dsm_stop();
 
-		if(IS_DSM2(dsm.protocol)) {
+		//if(IS_DSM2(dsm.protocol)) {
 			// We now got one channel and need to find the other
-			if (dsm.crc_seed == ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]))
-				dsm.channels[0] = dsm.cur_channel;
-			else
-				dsm.channels[1] = dsm.cur_channel;
+			dsm.channels[0] = dsm.cur_channel;
+			dsm.channels[1] = dsm.cur_channel;
 			dsm_receiver.status = DSM_RECEIVER_SYNC_B;
 
 			// Set the new channel and start receiving
 			dsm_set_channel((dsm.cur_channel + 1) % DSM_MAX_CHANNEL);
+			cyrf_start_recv();
 
 			// Start the timer
 			timer_dsm_set(DSM_SYNC_RECV_TIME);
-		} else {
+		/*} else {
 			// When it is DSMX we can stop because we know all the channels
 			dsm_receiver.status = DSM_RECEIVER_RECV;
 
 			// Set the next channel and start receiving
 			dsm_set_next_channel();
+			cyrf_start_recv();
 
 			// Start the timer
 			timer_dsm_set(DSM_RECV_TIME);
-		}
+		} FIXME */
 		break;
 	case DSM_RECEIVER_SYNC_B:
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
-				(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] && dsm.receive_packet[1] != dsm.cyrf_mfg_id[3]+1))
+				|| dsm.receive_packet[0] != (~dsm.cyrf_mfg_id[2]&0xFF) ||
+				(dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF) && dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF)+1))
 			break;
 
 		// Invert the CRC when received bad CRC
@@ -261,6 +293,11 @@ void dsm_receiver_on_receive(bool error) {
 
 		// Stop the timer
 		timer_dsm_stop();
+
+#if DEBUG
+	sprintf(cdc_msg, "SYNC B\r\n");
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
 
 		// We now got the other channel and can start receiving
 		if (dsm.crc_seed == ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1])) {
@@ -271,10 +308,21 @@ void dsm_receiver_on_receive(bool error) {
 			dsm.channels[1] = dsm.cur_channel;
 			dsm.ch_idx = 1;
 		}
-		dsm_receiver.status = DSM_RECEIVER_RECV;
+
+		if(dsm.channels[0] != dsm.channels[1])
+			dsm_receiver.status = DSM_RECEIVER_RECV;
+		else {
+			dsm_set_channel((dsm.cur_channel + 1) % DSM_MAX_CHANNEL);
+			cyrf_start_recv();
+
+			// Start the timer
+			timer_dsm_set(DSM_SYNC_RECV_TIME);
+			break;
+		}
 
 		// Set the next channel and start receiving
 		dsm_set_next_channel();
+		cyrf_start_recv();
 
 		// Start the timer
 		timer_dsm_set(DSM_RECV_TIME);
@@ -283,8 +331,8 @@ void dsm_receiver_on_receive(bool error) {
 		LED_OFF(1);
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if((error && !(rx_status & CYRF_BAD_CRC))
-				|| dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
-				(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] && dsm.receive_packet[1] != dsm.cyrf_mfg_id[3]+1))
+				|| dsm.receive_packet[0] != (~dsm.cyrf_mfg_id[2]&0xFF) ||
+				(dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF) && dsm.receive_packet[1] != (~dsm.cyrf_mfg_id[3]&0xFF)+1))
 			break;
 
 		// Invert the CRC when received bad CRC
@@ -293,9 +341,10 @@ void dsm_receiver_on_receive(bool error) {
 
 		// Stop the timer
 		timer_dsm_stop();
+		dsm_receiver.missed_packet = false;
 
 		// Check for packet loss
-		if(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit)
+		/*if(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit)
 			dsm.packet_loss = true;
 		else
 			dsm.packet_loss = false;
@@ -315,7 +364,26 @@ void dsm_receiver_on_receive(bool error) {
 			dsm_receiver_create_data_packet();
 			dsm.packet_loss_bit = !dsm.packet_loss_bit;
 			cyrf_send_len(dsm.transmit_packet, dsm.transmit_packet_length);
-		}
+		}*/
+		static int16_t channels[14];
+		//static int packet_first = 0;
+		//if(packet_first == 0)
+			convert_radio_to_channels(&dsm.receive_packet[2], dsm_receiver.num_channels, dsm.resolution, channels);
+		//else if(packet_first == 2)
+		//	convert_radio_to_channels(&dsm.receive_packet[2], 7, &channels[7]);
+		//packet_first = (packet_first + 1) % 4;
+
+#if DEBUG
+	sprintf(cdc_msg, "Channels(%d):", dsm_receiver.num_channels);
+	int i;
+	for(i = 0; i < dsm_receiver.num_channels; i++)
+		sprintf(cdc_msg, "%s\t%d", cdc_msg, channels[i]);
+	sprintf(cdc_msg, "%s\r\n", cdc_msg);
+	cdcacm_send(cdc_msg, strlen(cdc_msg));
+#endif
+
+		dsm_set_next_channel();
+		cyrf_start_recv();
 
 		// Start the timer
 		timer_dsm_set(DSM_RECV_TIME);
@@ -324,7 +392,6 @@ void dsm_receiver_on_receive(bool error) {
 	default:
 		break;
 	}
-	cyrf_start_recv();
 }
 
 /**
@@ -333,8 +400,8 @@ void dsm_receiver_on_receive(bool error) {
  */
 void dsm_receiver_on_send(bool error) {
 	// Set the next channel
-	dsm_set_next_channel();
-	cyrf_start_recv();
+	//dsm_set_next_channel();
+	//cyrf_start_recv();
 }
 
 /**

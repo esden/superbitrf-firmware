@@ -143,3 +143,21 @@ void convert_cdcacm_send_cb(void) {
 	if(size > 0)
 		cdcacm_send((char *)packet, size);
 }
+
+/**
+ * Convert normal radio transmitter to channel outputs
+ */
+void convert_radio_to_channels(char* data, uint8_t nb_channels, bool is_11bit, int16_t* channels) {
+	int i;
+	uint8_t bit_shift = (is_11bit)? 11:10;
+	int16_t value_max = (is_11bit)? 0x07FF: 0x03FF;
+
+	for (i=0; i<7; i++) {
+		const int16_t tmp = ((data[2*i]<<8) + data[2*i+1]) & 0x7FFF;
+		const uint8_t chan = (tmp >> bit_shift) & 0x0F;
+		const int16_t val  = (tmp&value_max);
+
+		if(chan < nb_channels)
+			channels[chan] = val;
+	}
+}

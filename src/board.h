@@ -20,6 +20,8 @@
 #ifndef BOARD_H_
 #define BOARD_H_
 
+#define DEBUG						1
+//#define DEBUG_CYRF					1
 
 /* Define the LEDS (optional) */
 #define USE_LED_POWER				1								/**< If the board has a Power led */

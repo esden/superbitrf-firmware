@@ -31,19 +31,19 @@
 #endif
 
 #ifndef DSM_PROTOCOL
-#define DSM_PROTOCOL				DSM_DSMXP
+#define DSM_PROTOCOL				DSM_DSM2P
 #endif
 
-#define DSM_BIND_CHANNEL			0x0D
+//#define DSM_BIND_CHANNEL			0x0D
 
 /* All times are in microseconds divided by 10 */
-#define DSM_BIND_RECV_TIME			1800		/**< Time before timeout when receiving bind packets */
-#define DSM_SYNC_RECV_TIME			2400		/**< Time before timeout when trying to sync */
+#define DSM_BIND_RECV_TIME			1000		/**< Time before timeout when receiving bind packets */
+#define DSM_SYNC_RECV_TIME			1200		/**< Time before timeout when trying to sync */
 #define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
-#define DSM_RECV_TIME				1200		/**< Time before timeout when trying to receive */
+#define DSM_RECV_TIME				2400		/**< Time before timeout when trying to receive */
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
-#define DSM_SEND_TIME				1100		/**< Time between sending both Channel A and Channel B */
-#define DSM_CHA_CHB_SEND_TIME		401			/**< Time between Channel A and Channel B send */
+#define DSM_SEND_TIME				1400		/**< Time between sending both Channel A and Channel B */
+#define DSM_CHA_CHB_SEND_TIME		700			/**< Time between Channel A and Channel B send */
 
 #ifdef DEBUG
 #define DSM_BIND_SEND_COUNT			3			/**< The number of bind packets to send */
@@ -62,6 +62,11 @@ enum dsm_protocol {
 #define IS_DSM2(x)			(x == DSM_DSM2P || x == DSM_DSM2_1 || x == DSM_DSM2_2)
 #define IS_DSMX(x)			(!IS_DSM2(x))
 
+enum dsm_resolution {
+	DSM_10_BIT_RESOLUTION			= 0x00,		/**< It has a 10 bit resolution */
+	DSM_11_BIT_RESOLUTION			= 0x01,		/**< It has a 11 bit resolution */
+};
+
 enum dsm_status {
 	DSM_BIND			= 0x0,		/**< The binding status */
 	DSM_RDY				= 0x1,		/**< The ready status */
@@ -69,6 +74,7 @@ enum dsm_status {
 
 struct Dsm {
 	enum dsm_protocol protocol;		/**< The type of DSM protocol */
+	enum dsm_resolution resolution;	/**< Is true when the transmitters uses 11 bit resolution */
 	enum dsm_status status;			/**< The status of DSM */
 	u8 cyrf_mfg_id[6];				/**< The device or the received MFG id */
 	u8 cur_channel;					/**< The current channel number */

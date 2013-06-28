@@ -95,7 +95,35 @@ static const u8 pn_codes[5][9][8] = {
   /* Col 8 */ {0x03, 0xBC, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8}
 },
 };
-static const u8 pn_bind[] = { 0xc6,0x94,0x22,0xfe,0x48,0xe6,0x57,0x4e };
+static const u8 pn_bind[] = { 0x98, 0x88, 0x1B, 0xE4, 0x30, 0x79, 0x03, 0x84 };
+
+/*The CYRF initial config, binding config and transfer config */
+static const u8 cyrf_config[][2] = {
+		{CYRF_MODE_OVERRIDE, CYRF_RST},											// Reset the device
+		{CYRF_CLK_EN, CYRF_RXF},												// Enable the clock
+		{CYRF_AUTO_CAL_TIME, 0x3C},												// From manual, needed for initialization
+		{CYRF_AUTO_CAL_OFFSET, 0x14},											// From manual, needed for initialization
+		{CYRF_RX_CFG, CYRF_LNA | CYRF_FAST_TURN_EN},							// Enable low noise amplifier and fast turning
+		{CYRF_TX_OFFSET_LSB, 0x55},												// From manual, typical configuration
+		{CYRF_TX_OFFSET_MSB, 0x05},												// From manual, typical configuration
+		{CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END},						// Force in Synth RX mode
+		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4},	// Enable 64 chip codes, SDR mode and amplifier +4dBm
+		{CYRF_DATA64_THOLD, 0x0E},												// From manual, typical configuration
+		{CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX},									// Set in Synth RX mode (again, really needed?)
+};
+static const u8 cyrf_bind_config[][2] = {
+		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4},	// Enable 64 chip codes, SDR mode and amplifier +4dBm
+		{CYRF_FRAMING_CFG, CYRF_SOP_LEN | 0xE},									// Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xE
+		{CYRF_RX_OVERRIDE, CYRF_FRC_RXDR | CYRF_DIS_RXCRC},						// Force receive data rate and disable receive CRC checker
+		{CYRF_EOP_CTRL, 0x02},													// Only enable EOP symbol count of 2
+		{CYRF_TX_OVERRIDE, CYRF_DIS_TXCRC},										// Disable transmit CRC generate
+};
+static const u8 cyrf_transfer_config[][2] = {
+		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_8DR | CYRF_PA_4},	// Enable 64 chip codes, 8DR mode and amplifier +4dBm
+		{CYRF_FRAMING_CFG, CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE},		// Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
+		{CYRF_TX_OVERRIDE, 0x00},												// Reset TX overrides
+		{CYRF_RX_OVERRIDE, 0x00},												// Reset RX overrides
+};
 
 static void dsm_generate_channels(void);
 
@@ -107,6 +135,9 @@ void dsm_init(void) {
 	sprintf(cdc_msg, "DSM START INIT\r\n");
 	cdcacm_send(cdc_msg, strlen(cdc_msg));
 #endif
+	// Configure the CYRF
+	cyrf_set_config(cyrf_config, sizeof(cyrf_config)/2);
+
 	// Read the CYRF MFG
 	cyrf_get_mfg_id(dsm.cyrf_mfg_id);
 
@@ -132,12 +163,7 @@ void dsm_start_bind(void) {
 #endif
 	u8 data_code[16];
 	// Set the CYRF configuration
-	cyrf_init_config();
-	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
-	cyrf_set_tx_cfg(CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4); // Enable 64 chip codes, SDR mode and amplifier +4dBm
-	cyrf_set_rx_override(CYRF_FRC_RXDR | CYRF_DIS_RXCRC); // Force receive data rate and disable receive CRC checker
-	cyrf_set_tx_override(CYRF_DIS_TXCRC); // Disable the transmit CRC
-	cyrf_set_framing_cfg(CYRF_SOP_LEN | 0xA); // Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xA
+	cyrf_set_config(cyrf_bind_config, sizeof(cyrf_bind_config)/2);
 
 	// Set the leds
 	LED_ON(1);
@@ -168,12 +194,7 @@ void dsm_start(void) {
 	cdcacm_send(cdc_msg, strlen(cdc_msg));
 #endif
 	// Set the CYRF configuration
-	cyrf_init_config();
-	cyrf_set_rx_cfg(CYRF_LNA | CYRF_FAST_TURN_EN); // Enable low noise amplifier and fast turn
-	cyrf_set_tx_cfg(CYRF_DATA_MODE_8DR | CYRF_PA_4); // Enable 32 chip codes, 8DR mode and amplifier +4dBm
-	cyrf_set_rx_override(0x0); // Reset the rx override
-	cyrf_set_tx_override(0x0); // Reset the tx override
-	cyrf_set_framing_cfg(CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE); // Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
+	cyrf_set_config(cyrf_transfer_config, sizeof(cyrf_transfer_config)/2);
 
 	// Set the leds
 	LED_OFF(1);
@@ -265,9 +286,7 @@ static void dsm_generate_channels(void) {
 void dsm_set_channel(u8 channel) {
 	u8 pn_row;
 	dsm.cur_channel = channel;
-
-	//TODO: Fix DATA code and sop code
-	pn_row = IS_DSM2(dsm.protocol)? channel % 5 : (channel - 2) % 5;
+	pn_row = IS_DSM2(dsm.protocol)? channel % 5 : channel % 5; //(channel - 2) % 5 FIXME
 
 #if DEBUG && DEBUG_DSM
 	sprintf(cdc_msg, "DSM SET CHANNEL: 0x%02X (mfg_id[0]: 0x%02X, mfg_id[1]: 0x%02X, mfg_id[2]: 0x%02X, mfg_id[3]: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X)\r\n",
@@ -275,14 +294,14 @@ void dsm_set_channel(u8 channel) {
 	cdcacm_send(cdc_msg, strlen(cdc_msg));
 #endif
 
-	// Change channel
-	cyrf_set_channel(channel);
-
 	// Update the CRC, SOP and Data code
 	dsm.crc_seed = ~dsm.crc_seed;
 	cyrf_set_crc_seed(dsm.crc_seed);
 	cyrf_set_sop_code(pn_codes[pn_row][dsm.sop_col]);
 	cyrf_set_data_code(pn_codes[pn_row][dsm.data_col]);
+
+	// Change channel
+	cyrf_set_channel(channel);
 }
 
 /**
@@ -299,6 +318,6 @@ void dsm_set_channel_raw(u8 channel) {
  */
 void dsm_set_next_channel(void) {
 	// Update the channel
-	dsm.ch_idx = IS_DSM2(dsm.protocol)? (dsm.ch_idx+1) % 2 : (dsm.ch_idx+1) % 23;
+	dsm.ch_idx = IS_DSM2(dsm.protocol)? (dsm.ch_idx+1) % 2 : (dsm.ch_idx+1) % 2; //23 FIXME
 	dsm_set_channel(dsm.channels[dsm.ch_idx]);
 }

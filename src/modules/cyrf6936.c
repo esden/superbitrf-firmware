@@ -32,23 +32,6 @@
 #include <string.h>
 #endif
 
-/*The CYRF config */
-static const u8 cyrf_config[][2] = {
-		{CYRF_MODE_OVERRIDE, CYRF_RST},											// Reset the device
-		{CYRF_CLK_EN, CYRF_RXF},												// Enable the clock
-		{CYRF_AUTO_CAL_TIME, 0x3C},												// From manual, needed for initialization
-		{CYRF_AUTO_CAL_OFFSET, 0x14},											// From manual, needed for initialization
-		{CYRF_TX_OFFSET_LSB, 0x55},												// From manual, typical configuration
-		{CYRF_TX_OFFSET_MSB, 0x05},												// From manual, typical configuration
-		{CYRF_DATA64_THOLD, 0x0A},												// From manual, typical configuration
-		{CYRF_EOP_CTRL, 0x02},													// Only enable EOP symbol count of 2
-		{CYRF_TX_CTRL, CYRF_TXC_IRQEN | CYRF_TXE_IRQEN},						// Transmit interrupt on complete and error
-		{CYRF_RX_CTRL, CYRF_RXC_IRQEN | CYRF_RXE_IRQEN},						// Receive interrupt on complete and error
-		{CYRF_RX_ABORT, 0x0F},													// RX Abort
-		{CYRF_ANALOG_CTRL, 0x01},												// RX Inverse
-		{CYRF_XACT_CFG, CYRF_MODE_IDLE | CYRF_FRC_END},							// Force in idle mode
-};
-
 /* The CYRF receive and send callbacks */
 cyrf_on_event _cyrf_recv_callback = NULL;
 cyrf_on_event _cyrf_send_callback = NULL;
@@ -133,6 +116,9 @@ void cyrf_init(void) {
 	Delay(100);
 	gpio_clear(CYRF_DEV_RST_PORT, CYRF_DEV_RST_PIN);
 	Delay(100);
+
+	/* Also a software reset */
+	cyrf_write_register(CYRF_MODE_OVERRIDE, CYRF_RST);
 }
 
 /**
@@ -232,14 +218,6 @@ void cyrf_read_block(const u8 address, u8 data[], const int length) {
 		data[i] = spi_xfer(CYRF_DEV_SPI, 0);
 
 	CYRF_CS_HI();
-}
-
-/**
- * Set the initial config (also a reset)
- */
-void cyrf_init_config(void) {
-	/* Set the config */
-	cyrf_set_config(cyrf_config, sizeof(cyrf_config)/2);
 }
 
 /**
@@ -497,7 +475,6 @@ void cyrf_resend(void) {
  * Start receiving mode and set IRQ
  */
 void cyrf_start_recv(void) {
-	cyrf_set_mode(CYRF_MODE_SYNTH_RX, 1);
 	cyrf_write_register(CYRF_RX_IRQ_STATUS, CYRF_RXOW_IRQ); // Clear the RX overwrite
 	cyrf_write_register(CYRF_RX_CTRL, CYRF_RX_GO | CYRF_RXC_IRQEN | CYRF_RXE_IRQEN); // Start receiving and set the IRQ
 #if DEBUG && DEBUG_CYRF
