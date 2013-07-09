@@ -22,11 +22,15 @@ BINARY = usb_transmitter
 # Comment the following line if you _don't_ have luftboot flashed!
 LDSCRIPT = ../../stm32f103cbt6.ld
 OBJS += ../modules/led.o ../modules/button.o ../modules/timer.o ../modules/cdcacm.o ../modules/cyrf6936.o
-OBJS += ../protocol/dsm.o ../protocol/dsm_receiver.o ../protocol/dsm_transmitter.o ../protocol/convert.o
+OBJS += ../protocol/dsm.o ../protocol/dsm_receiver.o ../protocol/dsm_transmitter.o ../protocol/dsm_mitm.o ../protocol/convert.o
 
 # Check if receiver or transmitter
 ifeq ($(RECEIVER),)
+ifeq ($(MITM),)
 CFLAGS += -DDSM_TRANSMITTER
+else
+CFLAGS += -DDSM_MITM
+endif
 else
 CFLAGS += -DDSM_RECEIVER
 endif
