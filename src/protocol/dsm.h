@@ -23,7 +23,9 @@
 #include "../board.h"
 
 #ifndef DSM_RECEIVER
+#ifndef DSM_MITM
 #define DSM_TRANSMITTER				1
+#endif
 #endif
 
 #ifndef DSM_MAX_CHANNEL
@@ -38,9 +40,9 @@
 
 /* All times are in microseconds divided by 10 */
 #define DSM_BIND_RECV_TIME			1000		/**< Time before timeout when receiving bind packets */
-#define DSM_SYNC_RECV_TIME			1200		/**< Time before timeout when trying to sync */
+#define DSM_SYNC_RECV_TIME			2000		/**< Time before timeout when trying to sync */
 #define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
-#define DSM_RECV_TIME				2400		/**< Time before timeout when trying to receive */
+#define DSM_RECV_TIME				1100		/**< Time before timeout when trying to receive */
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
 #define DSM_SEND_TIME				1400		/**< Time between sending both Channel A and Channel B */
 #define DSM_CHA_CHB_SEND_TIME		700			/**< Time between Channel A and Channel B send */

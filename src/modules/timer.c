@@ -55,7 +55,7 @@ static void timer_dsm_init(void) {
 	timer_set_oc_mode(TIMER_DSM, TIM_OC1, TIM_OCM_FROZEN);
 
 	// Set timer updates each 10 microseconds
-#if DEBUG && !DSM_RECEIVER
+#if DEBUG && !DSM_RECEIVER && !DSM_MITM
 	timer_set_prescaler(TIMER_DSM, 720000 - 1);
 #else
 	timer_set_prescaler(TIMER_DSM, 720 - 1);
@@ -79,7 +79,7 @@ void timer_init(void) {
  * @param[in] us The time in microseconds divided by 10
  */
 void timer_dsm_set(u16 us) {
-#if DEBUG && !DSM_RECEIVER
+#if DEBUG && !DSM_RECEIVER && !DSM_MITM
 	u16 new_t = (us*2 + timer_get_counter(TIMER_DSM)) & 65535;
 #else
 	u16 new_t = (us + timer_get_counter(TIMER_DSM)) & 65535;

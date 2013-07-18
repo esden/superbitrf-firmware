@@ -28,6 +28,7 @@
 #include "dsm.h"
 #include "dsm_receiver.h"
 #include "dsm_transmitter.h"
+#include "dsm_mitm.h"
 
 #if DEBUG && DEBUG_DSM
 #include "../modules/cdcacm.h"
@@ -147,9 +148,15 @@ void dsm_init(void) {
 	cyrf_register_recv_callback(dsm_transmitter_on_receive);
 	cyrf_register_send_callback(dsm_transmitter_on_send);
 #else
+#ifdef DSM_MITM
+	timer_dsm_register_callback(dsm_mitm_on_timer);
+	cyrf_register_recv_callback(dsm_mitm_on_receive);
+	cyrf_register_send_callback(dsm_mitm_on_send);
+#else
 	timer_dsm_register_callback(dsm_receiver_on_timer);
 	cyrf_register_recv_callback(dsm_receiver_on_receive);
 	cyrf_register_send_callback(dsm_receiver_on_send);
+#endif
 #endif
 }
 
@@ -181,7 +188,11 @@ void dsm_start_bind(void) {
 #ifdef DSM_TRANSMITTER
 	dsm_transmitter_start_bind();
 #else
+#ifdef DSM_MITM
+	dsm_mitm_start_bind();
+#else
 	dsm_receiver_start_bind();
+#endif
 #endif
 }
 
@@ -220,7 +231,11 @@ void dsm_start(void) {
 #ifdef DSM_TRANSMITTER
 	dsm_transmitter_start();
 #else
+#ifdef DSM_MITM
+	dsm_mitm_start();
+#else
 	dsm_receiver_start();
+#endif
 #endif
 }
 
@@ -229,7 +244,7 @@ void dsm_start(void) {
  */
 static void dsm_generate_channels(void) {
 	// Check if is a DSM2 or DSMX protocol
-	if (IS_DSM2(dsm.protocol)) {
+	if (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2) {
 		// Just generate 2 random channels
 		dsm.channels[0] = rand() / (RAND_MAX / DSM_MAX_CHANNEL/2 + 1);
 		dsm.channels[1] = rand() / (RAND_MAX / DSM_MAX_CHANNEL/2 + 1) + DSM_MAX_CHANNEL/2;
@@ -286,7 +301,7 @@ static void dsm_generate_channels(void) {
 void dsm_set_channel(u8 channel) {
 	u8 pn_row;
 	dsm.cur_channel = channel;
-	pn_row = IS_DSM2(dsm.protocol)? channel % 5 : channel % 5; //(channel - 2) % 5 FIXME
+	pn_row = (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2)? channel % 5 : (channel-2) % 5;
 
 #if DEBUG && DEBUG_DSM
 	sprintf(cdc_msg, "DSM SET CHANNEL: 0x%02X (mfg_id[0]: 0x%02X, mfg_id[1]: 0x%02X, mfg_id[2]: 0x%02X, mfg_id[3]: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X)\r\n",
@@ -318,6 +333,6 @@ void dsm_set_channel_raw(u8 channel) {
  */
 void dsm_set_next_channel(void) {
 	// Update the channel
-	dsm.ch_idx = IS_DSM2(dsm.protocol)? (dsm.ch_idx+1) % 2 : (dsm.ch_idx+1) % 2; //23 FIXME
+	dsm.ch_idx = (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2)? (dsm.ch_idx+1) % 2 : (dsm.ch_idx+1) % 23;
 	dsm_set_channel(dsm.channels[dsm.ch_idx]);
 }
