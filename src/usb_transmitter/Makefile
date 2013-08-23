@@ -37,3 +37,7 @@ endif
 
 include ../../Makefile.include
 
+cdw:
+	make flash PREFIX=~/sat/bin/arm-none-eabi TRANSMITTER=1 BMP_PORT=/dev/ttyACM0
+
+
