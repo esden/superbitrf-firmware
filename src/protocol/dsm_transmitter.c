@@ -91,6 +91,10 @@ void dsm_transmitter_on_timer(void) {
 	// Check the transmitter status
 	switch (dsm_transmitter.status) {
 	case DSM_TRANSMITTER_BIND:
+		// Abort the send
+		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
+		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+
 		// Send the bind packet again
 		dsm_transmitter_send();
 
@@ -104,6 +108,7 @@ void dsm_transmitter_on_timer(void) {
 		break;
 	case DSM_TRANSMITTER_SENDA:
 		// Start the timer as first so we make sure the timing is right
+		timer_dsm_stop();
 		timer_dsm_set(DSM_CHA_CHB_SEND_TIME);
 
 		// Start transmitting mode
@@ -112,20 +117,25 @@ void dsm_transmitter_on_timer(void) {
 		// Update the channel
 		dsm_set_next_channel();
 
+		// Abort the send
+		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
+		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDB;
 
 		// Send the packet or resend it
-		if(dsm.packet_loss)
+		/*if(dsm.packet_loss)
 			cyrf_resend();
-		else {
+		else {*/
 			// Create and send the packet
 			dsm_transmitter_create_data_packet();
 			dsm_transmitter_send();
-		}
+		//}
 		break;
 	case DSM_TRANSMITTER_SENDB:
 		// Start the timer as first so we make sure the timing is right
+		timer_dsm_stop();
 		timer_dsm_set(DSM_SEND_TIME - DSM_CHA_CHB_SEND_TIME);
 
 		// Start transmitting mode
@@ -134,19 +144,24 @@ void dsm_transmitter_on_timer(void) {
 		// Update the channel
 		dsm_set_next_channel();
 
+		// Abort the send
+		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
+		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
 
 		// Send the packet or resend it
-		if(dsm.packet_loss)
+		//if(dsm.packet_loss)
 			//cyrf_resend();
+		    //dsm_transmitter_create_data_packet();
 			dsm_transmitter_send();
-		else {
+		/*else {
 			// Create and send the packet and beleeive we lost the packet at first
 			dsm_transmitter_create_data_packet();
 			dsm_transmitter_send();
 			dsm.packet_loss = true;
-		}
+		}*/
 		break;
 	default:
 		break;
@@ -165,7 +180,7 @@ void dsm_transmitter_on_receive(bool error) {
 	cyrf_recv_len(dsm.receive_packet, length);
 
 	// Check if it is a valid packet
-	if(error || dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
+	/*if(error || dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
 			(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] && dsm.receive_packet[1] != dsm.cyrf_mfg_id[3]+1))
 		return;
 
@@ -173,10 +188,10 @@ void dsm_transmitter_on_receive(bool error) {
 	if(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit) {
 		dsm.packet_loss = true;
 		return;
-	}
+	}*/
 
-	dsm.packet_loss = false;
-	dsm.packet_loss_bit = !dsm.packet_loss_bit;
+	//dsm.packet_loss = false;
+	//dsm.packet_loss_bit = !dsm.packet_loss_bit;
 
 	// Handle packet
 	convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], length-2);
@@ -188,12 +203,14 @@ void dsm_transmitter_on_receive(bool error) {
  */
 void dsm_transmitter_on_send(bool error) {
 	// Check if there is no error
-	if (error)
+	/*if (error)
 		dsm_transmitter.error_count++;
 
-	dsm_transmitter.sending = 0;
+	dsm_transmitter.sending = 0;*/
 
 	// Start receiving for data back in
+	cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END);
+	cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
 	cyrf_start_recv();
 }
 
@@ -220,7 +237,7 @@ static void dsm_transmitter_create_bind_packet(void) {
 	dsm.transmit_packet[8] = sum >> 8;
 	dsm.transmit_packet[9] = sum & 0xFF;
 	dsm.transmit_packet[10] = 0x01; //???
-	dsm.transmit_packet[11] = 0x00; // Number of channels, but we use own protocol
+	dsm.transmit_packet[11] = 0x06; // Number of channels, but we use own protocol
 	dsm.transmit_packet[12] = dsm.protocol;
 	dsm.transmit_packet[13] = 0x00; //???
 
@@ -239,16 +256,38 @@ static void dsm_transmitter_create_bind_packet(void) {
  * Create the transmitter data packet
  */
 static void dsm_transmitter_create_data_packet(void) {
-	u8 i;
+	if(convert_extract_size(&cdcacm_to_radio) < 14)
+		return;
+
 	// Set the first two bytes to the cyrf_mfg_id
-	dsm.transmit_packet[0] = dsm.cyrf_mfg_id[2];
-	dsm.transmit_packet[1] = dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit;
+	//dsm.transmit_packet[0] = dsm.cyrf_mfg_id[2];
+	//dsm.transmit_packet[1] = dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit;
+
+	dsm.transmit_packet[0] = ~0xB7;
+	dsm.transmit_packet[1] = ~0x77;
+
+	/*dsm.transmit_packet[2] = 0x06;
+	dsm.transmit_packet[3] = 0x2F;
+	dsm.transmit_packet[4] = 0x15;
+	dsm.transmit_packet[5] = 0xFF;
+	dsm.transmit_packet[6] = 0x0A;
+	dsm.transmit_packet[7] = 0x1B;
+	dsm.transmit_packet[8] = 0x10;
+	dsm.transmit_packet[9] = 0x99;
+	dsm.transmit_packet[10] = 0x0D;
+	dsm.transmit_packet[11] = 0xFF;
+	dsm.transmit_packet[12] = 0x18;
+	dsm.transmit_packet[13] = 0x00;
+	dsm.transmit_packet[14] = 0x00;
+	dsm.transmit_packet[15] = 0xA2;*/
 
 	// Fill as much bytes with data
 	dsm.transmit_packet_length = convert_extract(&cdcacm_to_radio, dsm.transmit_packet+2, 14) + 2;
 	// Clean the rest of the packet
-	for(i = dsm.transmit_packet_length; i < 16; i++)
-		dsm.transmit_packet[i] = 0x00;
+	/*for(i = dsm.transmit_packet_length; i < 16; i++)
+		dsm.transmit_packet[i] = 0x00;*/
+
+	dsm.transmit_packet_length = 16;
 }
 
 /**

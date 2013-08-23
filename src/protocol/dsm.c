@@ -211,6 +211,11 @@ void dsm_start(void) {
 	LED_OFF(1);
 	LED_ON(2);
 
+	dsm.cyrf_mfg_id[0] = 0xF2;
+		dsm.cyrf_mfg_id[1] = 0x39;
+		dsm.cyrf_mfg_id[2] = 0xB7;
+		dsm.cyrf_mfg_id[3] = 0x77;
+
 	// Generate the channels
 	dsm_generate_channels();
 
@@ -246,8 +251,8 @@ static void dsm_generate_channels(void) {
 	// Check if is a DSM2 or DSMX protocol
 	if (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2) {
 		// Just generate 2 random channels
-		dsm.channels[0] = rand() / (RAND_MAX / DSM_MAX_CHANNEL/2 + 1);
-		dsm.channels[1] = rand() / (RAND_MAX / DSM_MAX_CHANNEL/2 + 1) + DSM_MAX_CHANNEL/2;
+		dsm.channels[0] = 0x46;
+		dsm.channels[1] = 0x1B;
 	} else {
 		// Calculate the DSMX channels
 		int idx = 0;

@@ -44,8 +44,8 @@
 #define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
 #define DSM_RECV_TIME				1100		/**< Time before timeout when trying to receive */
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
-#define DSM_SEND_TIME				1400		/**< Time between sending both Channel A and Channel B */
-#define DSM_CHA_CHB_SEND_TIME		700			/**< Time between Channel A and Channel B send */
+#define DSM_SEND_TIME				1100		/**< Time between sending both Channel A and Channel B */
+#define DSM_CHA_CHB_SEND_TIME		300		/**< Time between Channel A and Channel B send */
 
 #ifdef DEBUG
 #define DSM_BIND_SEND_COUNT			3			/**< The number of bind packets to send */
