@@ -18,6 +18,8 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
+## make flash PREFIX=~/sat/bin/arm-none-eabi TRANSMITTER=1 BMP_PORT=/dev/ttyACM0
+
 PREFIX	?= arm-none-eabi
 #PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
