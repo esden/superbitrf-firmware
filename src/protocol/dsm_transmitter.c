@@ -87,6 +87,7 @@ void dsm_transmitter_start(void) {
 /**
  * When the timer send an IRQ
  */
+bool send_on_chan2 = false;
 void dsm_transmitter_on_timer(void) {
 	// Check the transmitter status
 	switch (dsm_transmitter.status) {
@@ -110,6 +111,7 @@ void dsm_transmitter_on_timer(void) {
 		// Start the timer as first so we make sure the timing is right
 		timer_dsm_stop();
 		timer_dsm_set(DSM_CHA_CHB_SEND_TIME);
+		send_on_chan2 = false;
 
 		// Start transmitting mode
 		cyrf_start_transmit();
@@ -137,6 +139,7 @@ void dsm_transmitter_on_timer(void) {
 		// Start the timer as first so we make sure the timing is right
 		timer_dsm_stop();
 		timer_dsm_set(DSM_SEND_TIME - DSM_CHA_CHB_SEND_TIME);
+		send_on_chan2 = true;
 
 		// Start transmitting mode
 		cyrf_start_transmit();
@@ -175,6 +178,9 @@ void dsm_transmitter_on_timer(void) {
 void dsm_transmitter_on_receive(bool error) {
 	// Get the receive count
 	u8 length = cyrf_read_register(CYRF_RX_COUNT);
+	u8 start_bytes[2];
+	start_bytes[0] = 0x55;
+	start_bytes[1] = 0xCC;
 
 	// Receive the data
 	cyrf_recv_len(dsm.receive_packet, length);
@@ -194,7 +200,8 @@ void dsm_transmitter_on_receive(bool error) {
 	//dsm.packet_loss_bit = !dsm.packet_loss_bit;
 
 	// Handle packet
-	convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], length-2);
+	convert_radio_to_cdcacm_insert(&start_bytes, 2);
+	convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], 14);
 }
 
 /**
@@ -208,10 +215,14 @@ void dsm_transmitter_on_send(bool error) {
 
 	dsm_transmitter.sending = 0;*/
 
-	// Start receiving for data back in
-	cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END);
-	cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
-	cyrf_start_recv();
+	if(send_on_chan2) {
+		/*cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END);
+		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN*/
+		dsm_set_channel(0x51);
+
+		// Start receiving for data back in
+		cyrf_start_recv();
+	}
 }
 
 /**
