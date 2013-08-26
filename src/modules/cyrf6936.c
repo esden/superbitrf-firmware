@@ -25,12 +25,7 @@
 #include <libopencm3/stm32/exti.h>
 
 #include "cyrf6936.h"
-
-#if DEBUG && DEBUG_CYRF
-#include "cdcacm.h"
-#include <stdio.h>
-#include <string.h>
-#endif
+#include "config.h"
 
 /* The CYRF receive and send callbacks */
 cyrf_on_event _cyrf_recv_callback = NULL;
@@ -59,10 +54,7 @@ void Delay(u32 x)
  * Initialize the CYRF6936
  */
 void cyrf_init(void) {
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 INIT\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "Initializing");
 	/* Initialize the clocks */
 	rcc_peripheral_enable_clock(&RCC_APB2ENR, CYRF_DEV_SPI_CLK); //SPI
 	rcc_peripheral_enable_clock(&RCC_APB2ENR, CYRF_DEV_IRQ_CLK); //IRQ
@@ -119,6 +111,7 @@ void cyrf_init(void) {
 
 	/* Also a software reset */
 	cyrf_write_register(CYRF_MODE_OVERRIDE, CYRF_RST);
+	DEBUG(cyrf6936, "Initializing done");
 }
 
 /**
@@ -228,11 +221,7 @@ void cyrf_get_mfg_id(u8 *mfg_id) {
 	cyrf_write_register(CYRF_MFG_ID, 0xFF);
 	cyrf_read_block(CYRF_MFG_ID, mfg_id, 6);
 	cyrf_write_register(CYRF_MFG_ID, 0x00);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 READ [MFG_ID]: 0x%02X%02X%02X%02X%02X%02X\r\n",
-			mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3], mfg_id[4], mfg_id[5]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "READ MFG_ID: 0x%02X%02X%02X%02X%02X%02X", mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3], mfg_id[4], mfg_id[5]);
 }
 
 /**
@@ -256,16 +245,11 @@ u8 cyrf_get_rx_status(void) {
  * @param[in] config An array of len by 2, consisting the register address and the values
  * @param[in] length The length of the config array
  */
-void cyrf_set_config(const u8 config[][2], const u8 length) {
+void cyrf_set_config_len(const u8 config[][2], const u8 length) {
 	int i;
 	for (i = 0; i < length; i++) {
 		cyrf_write_register(config[i][0], config[i][1]);
-
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [0x%02X]: 0x%02X\r\n",
-			config[i][0], config[i][1]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+		DEBUG(cyrf6936, "WRITE 0x%02X: 0x%02X", config[i][0], config[i][1]);
 	}
 }
 
@@ -275,10 +259,7 @@ void cyrf_set_config(const u8 config[][2], const u8 length) {
  */
 void cyrf_set_channel(const u8 chan) {
 	cyrf_write_register(CYRF_CHANNEL, chan);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [CHANNEL]: 0x%02X\r\n", chan);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE CHANNEL: 0x%02X", chan);
 }
 
 /**
@@ -288,10 +269,7 @@ void cyrf_set_channel(const u8 chan) {
 void cyrf_set_power(const u8 power) {
 	u8 tx_cfg = cyrf_read_register(CYRF_TX_CFG) & (0xFF - CYRF_PA_4);
 	cyrf_write_register(CYRF_TX_CFG, tx_cfg | power);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [POWER]: 0x%02X (0x%02X)\r\n", power, tx_cfg);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE POWER: 0x%02X (0x%02X)", power, tx_cfg);
 }
 
 /**
@@ -304,10 +282,8 @@ void cyrf_set_mode(const u8 mode, const bool force) {
 		cyrf_write_register(CYRF_XACT_CFG, mode | CYRF_FRC_END);
 	else
 		cyrf_write_register(CYRF_XACT_CFG, mode);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [MODE]: 0x%02X (0x%02X)\r\n", mode, force);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+
+	DEBUG(cyrf6936, "WRITE MODE: 0x%02X (0x%02X)", mode, force);
 }
 
 /**
@@ -317,10 +293,8 @@ void cyrf_set_mode(const u8 mode, const bool force) {
 void cyrf_set_crc_seed(const u16 crc) {
 	cyrf_write_register(CYRF_CRC_SEED_LSB, crc & 0xff);
 	cyrf_write_register(CYRF_CRC_SEED_MSB, crc >> 8);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [CRC]: 0x%02X LSB 0x%02X MSB\r\n", crc & 0xff, crc >> 8);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+
+	DEBUG(cyrf6936, "WRITE CRC: 0x%02X LSB 0x%02X MSB", crc & 0xff, crc >> 8);
 }
 
 /**
@@ -329,11 +303,9 @@ void cyrf_set_crc_seed(const u16 crc) {
  */
 void cyrf_set_sop_code(const u8 *sopcode) {
 	cyrf_write_block(CYRF_SOP_CODE, sopcode, 8);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [SOP_CODE]: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+
+	DEBUG(cyrf6936, "WRITE SOP_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
 			sopcode[0], sopcode[1], sopcode[2], sopcode[3], sopcode[4], sopcode[5], sopcode[6], sopcode[7]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
 }
 
 /**
@@ -342,12 +314,10 @@ void cyrf_set_sop_code(const u8 *sopcode) {
  */
 void cyrf_set_data_code(const u8 *datacode) {
 	cyrf_write_block(CYRF_DATA_CODE, datacode, 16);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [DATA_CODE]: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+
+	DEBUG(cyrf6936, "WRITE DATA_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
 			datacode[0], datacode[1], datacode[2], datacode[3], datacode[4], datacode[5], datacode[6], datacode[7],
 			datacode[8], datacode[9], datacode[10], datacode[11], datacode[12], datacode[13], datacode[14], datacode[15]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
 }
 
 /**
@@ -356,11 +326,8 @@ void cyrf_set_data_code(const u8 *datacode) {
  */
 void cyrf_set_data_code_small(const u8 *datacode) {
 	cyrf_write_block(CYRF_DATA_CODE, datacode, 8);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [DATA_CODE]: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+	DEBUG(cyrf6936, "WRITE DATA_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
 			datacode[0], datacode[1], datacode[2], datacode[3], datacode[4], datacode[5], datacode[6], datacode[7]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
 }
 
 /**
@@ -369,11 +336,8 @@ void cyrf_set_data_code_small(const u8 *datacode) {
  */
 void cyrf_set_preamble(const u8 *preamble) {
 	cyrf_write_block(CYRF_PREAMBLE, preamble, 3);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [PREAMBLE]: 0x%02X 0x%02X 0x%02X\r\n",
+	DEBUG(cyrf6936, "WRITE PREAMBLE: 0x%02X 0x%02X 0x%02X",
 			preamble[0], preamble[1], preamble[2]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
 }
 
 /**
@@ -382,10 +346,7 @@ void cyrf_set_preamble(const u8 *preamble) {
  */
 void cyrf_set_framing_cfg(const u8 config) {
 	cyrf_write_register(CYRF_FRAMING_CFG, config);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [FRAMING]: 0x%02X\r\n", config);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE FRAMING: 0x%02X", config);
 }
 
 /**
@@ -394,10 +355,7 @@ void cyrf_set_framing_cfg(const u8 config) {
  */
 void cyrf_set_rx_cfg(const u8 config) {
 	cyrf_write_register(CYRF_RX_CFG, config);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [RX_CFG]: 0x%02X\r\n", config);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE RX_CFG: 0x%02X", config);
 }
 
 /**
@@ -406,10 +364,7 @@ void cyrf_set_rx_cfg(const u8 config) {
  */
 void cyrf_set_tx_cfg(const u8 config) {
 	cyrf_write_register(CYRF_TX_CFG, config);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [TX_CFG]: 0x%02X\r\n", config);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE TX_CFG: 0x%02X", config);
 }
 
 /*
@@ -418,10 +373,7 @@ void cyrf_set_tx_cfg(const u8 config) {
  */
 void cyrf_set_rx_override(const u8 override) {
 	cyrf_write_register(CYRF_RX_OVERRIDE, override);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [RX_OVERRIDE]: 0x%02X\r\n", override);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE RX_OVERRIDE: 0x%02X", override);
 }
 
 /*
@@ -430,10 +382,7 @@ void cyrf_set_rx_override(const u8 override) {
  */
 void cyrf_set_tx_override(const u8 override) {
 	cyrf_write_register(CYRF_TX_OVERRIDE, override);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 WRITE [TX_OVERRIDE]: 0x%02X\r\n", override);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "WRITE TX_OVERRIDE: 0x%02X", override);
 }
 
 /*
@@ -454,10 +403,7 @@ void cyrf_send_len(const u8 *data, const u8 length) {
  */
 void cyrf_send(const u8 *data) {
 	cyrf_send_len(data, 16);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 SEND\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "SEND");
 }
 
 /**
@@ -465,10 +411,7 @@ void cyrf_send(const u8 *data) {
  */
 void cyrf_resend(void) {
 	cyrf_write_register(CYRF_TX_CTRL, CYRF_TX_GO | CYRF_TXC_IRQEN | CYRF_TXE_IRQEN);
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 RESEND\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "RESEND");
 }
 
 /**
@@ -477,10 +420,7 @@ void cyrf_resend(void) {
 void cyrf_start_recv(void) {
 	cyrf_write_register(CYRF_RX_IRQ_STATUS, CYRF_RXOW_IRQ); // Clear the RX overwrite
 	cyrf_write_register(CYRF_RX_CTRL, CYRF_RX_GO | CYRF_RXC_IRQEN | CYRF_RXE_IRQEN); // Start receiving and set the IRQ
-#if DEBUG && DEBUG_CYRF
-	sprintf(cdc_msg, "CYRF6393 START RECEIVE\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	DEBUG(cyrf6936, "START RECEIVE");
 }
 
 /**
@@ -488,6 +428,7 @@ void cyrf_start_recv(void) {
  */
 void cyrf_start_transmit(void) {
 	cyrf_set_mode(CYRF_MODE_SYNTH_TX, 1);
+	DEBUG(cyrf6936, "START TRANSMIT");
 }
 
 /**

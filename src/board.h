@@ -20,26 +20,24 @@
 #ifndef BOARD_H_
 #define BOARD_H_
 
-//#define DEBUG						1
-//#define DEBUG_DSM						1
-//#define DEBUG_CYRF					1
-#define DSM_FORCE_DSM2				true
-
 /* Define the LEDS (optional) */
-#define USE_LED_POWER				1								/**< If the board has a Power led */
-#define LED_POWER_GPIO_PORT			GPIOB							/**< The Power led GPIO port */
-#define LED_POWER_GPIO_PIN			GPIO2							/**< The Power led GPIO pin */
-#define LED_POWER_GPIO_CLK			RCC_APB2ENR_IOPBEN				/**< The Power led GPIO clock */
+#define LED_BIND					1
+#define USE_LED_1					1								/**< If the board has the 1 led */
+#define LED_1_GPIO_PORT				GPIOB							/**< The 1 led GPIO port */
+#define LED_1_GPIO_PIN				GPIO2							/**< The 1 led GPIO pin */
+#define LED_1_GPIO_CLK				RCC_APB2ENR_IOPBEN				/**< The 1 led GPIO clock */
 
-#define USE_LED_1					1
-#define LED_1_GPIO_PORT				GPIOB
-#define LED_1_GPIO_PIN				GPIO10
-#define LED_1_GPIO_CLK				RCC_APB2ENR_IOPBEN
-
+#define LED_RX						2
 #define USE_LED_2					1
 #define LED_2_GPIO_PORT				GPIOB
-#define LED_2_GPIO_PIN				GPIO11
+#define LED_2_GPIO_PIN				GPIO10
 #define LED_2_GPIO_CLK				RCC_APB2ENR_IOPBEN
+
+#define LED_TX						3
+#define USE_LED_3					1
+#define LED_3_GPIO_PORT				GPIOB
+#define LED_3_GPIO_PIN				GPIO11
+#define LED_3_GPIO_CLK				RCC_APB2ENR_IOPBEN
 
 /* Define the BIND button (optional) */
 #define USE_BTN_BIND				1								/**< If the board has a bind button */

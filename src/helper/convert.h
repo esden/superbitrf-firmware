@@ -20,26 +20,30 @@
 #ifndef PROTOCOL_CONVERT_H_
 #define PROTOCOL_CONVERT_H_
 
+#ifndef MAX_BUFFER
 #define MAX_BUFFER			2048
+#endif
 
+/**
+ * The buffer structure
+ */
 struct Buffer {
-	u16 insert_idx;
-	u16 extract_idx;
-	u8 buffer[MAX_BUFFER];
+	u16 insert_idx;						/**< The insert index of the buffer */
+	u16 extract_idx;					/**< The extract index of the buffer */
+	u8 buffer[MAX_BUFFER];				/**< The buffer with the data */
+
+	void (*buffer_insert_cb)(void);		/**< The callback when there is new data in the buffer */
 };
 
-/* The two buffers used */
-extern struct Buffer cdcacm_to_radio;
-extern struct Buffer radio_to_cdcacm;
-
 /* The external functions */
-void convert_init(void);
-bool convert_cdcacm_to_radio_insert(u8 *data, u16 length);
-bool convert_radio_to_cdcacm_insert(u8 *data, u16 length);
+void convert_init(struct Buffer *buffer);
+bool convert_insert(struct Buffer *buffer, u8 *data, u16 length);
 u16 convert_extract(struct Buffer *buffer, u8 *data, u16 length);
+void convert_set_insert_cb(struct Buffer *buffer, void (*buffer_insert_cb)(void));
+
 u16 convert_insert_size(struct Buffer *buffer);
 u16 convert_extract_size(struct Buffer *buffer);
-void convert_cdcacm_receive_cb(char *data, int size);
-void convert_cdcacm_send_cb(void);
+
+void convert_radio_to_channels(uint8_t* data, uint8_t nb_channels, bool is_11bit, int16_t* channels);
 
 #endif /* PROTOCOL_CONVERT_H_ */

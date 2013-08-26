@@ -24,11 +24,7 @@
 #include "../board.h"
 
 typedef void (*cdcacm_receive_callback) (char *data, int size);
-
-#if DEBUG
-extern u8 cdcacm_is_connected;
-extern char cdc_msg[512];
-#endif
+extern bool cdcacm_did_receive;
 
 void cdcacm_init(void);
 void cdcacm_run(void);

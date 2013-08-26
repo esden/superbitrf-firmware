@@ -219,7 +219,7 @@ void cyrf_read_block(const u8 address, u8 *data, const int length);
 void cyrf_get_mfg_id(u8 *mfg);
 u8   cyrf_get_rssi(void);
 u8   cyrf_get_rx_status(void);
-void cyrf_set_config(const u8 config[][2], const u8 length);
+void cyrf_set_config_len(const u8 config[][2], const u8 length);
 void cyrf_set_channel(const u8 chan);
 void cyrf_set_power(const u8 power);
 void cyrf_set_mode(const u8 mode, const bool force);

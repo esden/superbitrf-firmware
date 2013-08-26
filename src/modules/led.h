@@ -20,9 +20,11 @@
 #ifndef MODULES_LED_H_
 #define MODULES_LED_H_
 
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+
 // Include the board specifications for the leds
 #include "../board.h"
-
 
 /* Control the leds from the board */
 #define _(i)  i
@@ -30,9 +32,9 @@
 #define LED_GPIO_PIN(i)		_(LED_ ## i ## _GPIO_PIN)
 #define LED_GPIO_CLK(i)		_(LED_ ## i ## _GPIO_CLK)
 
-#define LED_ON(i)		{ gpio_clear(LED_GPIO_PORT(i), LED_GPIO_PIN(i)); }
-#define LED_OFF(i)		{ gpio_set(LED_GPIO_PORT(i), LED_GPIO_PIN(i)); }
-#define LED_TOGGLE(i)	{ gpio_toggle(LED_GPIO_PORT(i), LED_GPIO_PIN(i)); }
+#define LED_ON(i)		gpio_clear(LED_GPIO_PORT(i), LED_GPIO_PIN(i))
+#define LED_OFF(i)		gpio_set(LED_GPIO_PORT(i), LED_GPIO_PIN(i))
+#define LED_TOGGLE(i)	gpio_toggle(LED_GPIO_PORT(i), LED_GPIO_PIN(i))
 
 #define LED_INIT(i) {                               \
 	rcc_peripheral_enable_clock(&RCC_APB2ENR,       \

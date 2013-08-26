@@ -17,29 +17,12 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <libopencm3/cm3/common.h>
-#include <libopencm3/stm32/gpio.h>
-#include "../modules/timer.h"
+#include "../modules/config.h"
 #include "../modules/cyrf6936.h"
-#include "../modules/led.h"
-
 #include "dsm.h"
-#include "dsm_receiver.h"
-#include "dsm_transmitter.h"
-#include "dsm_mitm.h"
-
-#if DEBUG && DEBUG_DSM
-#include "../modules/cdcacm.h"
-#include <stdio.h>
-#endif
-
-/* The DSM struct */
-struct Dsm dsm;
 
 /* The PN codes */
-static const u8 pn_codes[5][9][8] = {
+const u8 pn_codes[5][9][8] = {
 { /* Row 0 */
   /* Col 0 */ {0x03, 0xBC, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8},
   /* Col 1 */ {0x88, 0x17, 0x13, 0x3B, 0x2D, 0xBF, 0x06, 0xD6},
@@ -96,10 +79,10 @@ static const u8 pn_codes[5][9][8] = {
   /* Col 8 */ {0x03, 0xBC, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8}
 },
 };
-static const u8 pn_bind[] = { 0x98, 0x88, 0x1B, 0xE4, 0x30, 0x79, 0x03, 0x84 };
+const u8 pn_bind[] = { 0x98, 0x88, 0x1B, 0xE4, 0x30, 0x79, 0x03, 0x84 };
 
 /*The CYRF initial config, binding config and transfer config */
-static const u8 cyrf_config[][2] = {
+const u8 cyrf_config[][2] = {
 		{CYRF_MODE_OVERRIDE, CYRF_RST},											// Reset the device
 		{CYRF_CLK_EN, CYRF_RXF},												// Enable the clock
 		{CYRF_AUTO_CAL_TIME, 0x3C},												// From manual, needed for initialization
@@ -112,232 +95,120 @@ static const u8 cyrf_config[][2] = {
 		{CYRF_DATA64_THOLD, 0x0E},												// From manual, typical configuration
 		{CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX},									// Set in Synth RX mode (again, really needed?)
 };
-static const u8 cyrf_bind_config[][2] = {
+const u8 cyrf_bind_config[][2] = {
 		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4},	// Enable 64 chip codes, SDR mode and amplifier +4dBm
 		{CYRF_FRAMING_CFG, CYRF_SOP_LEN | 0xE},									// Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xE
 		{CYRF_RX_OVERRIDE, CYRF_FRC_RXDR | CYRF_DIS_RXCRC},						// Force receive data rate and disable receive CRC checker
 		{CYRF_EOP_CTRL, 0x02},													// Only enable EOP symbol count of 2
 		{CYRF_TX_OVERRIDE, CYRF_DIS_TXCRC},										// Disable transmit CRC generate
 };
-static const u8 cyrf_transfer_config[][2] = {
+const u8 cyrf_transfer_config[][2] = {
 		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_8DR | CYRF_PA_4},	// Enable 64 chip codes, 8DR mode and amplifier +4dBm
 		{CYRF_FRAMING_CFG, CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE},		// Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
 		{CYRF_TX_OVERRIDE, 0x00},												// Reset TX overrides
 		{CYRF_RX_OVERRIDE, 0x00},												// Reset RX overrides
 };
 
-static void dsm_generate_channels(void);
-
 /**
- * Initialize DSM
+ * Return the size of the config array
+ * @return The size of the config array
  */
-void dsm_init(void) {
-#if DEBUG && DEBUG_DSM
-	sprintf(cdc_msg, "DSM START INIT\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
-	// Configure the CYRF
-	cyrf_set_config(cyrf_config, sizeof(cyrf_config)/2);
-
-	// Read the CYRF MFG
-	cyrf_get_mfg_id(dsm.cyrf_mfg_id);
-
-	// Register timer, receive and send callback
-#ifdef DSM_TRANSMITTER
-	timer_dsm_register_callback(dsm_transmitter_on_timer);
-	cyrf_register_recv_callback(dsm_transmitter_on_receive);
-	cyrf_register_send_callback(dsm_transmitter_on_send);
-#else
-#ifdef DSM_MITM
-	timer_dsm_register_callback(dsm_mitm_on_timer);
-	cyrf_register_recv_callback(dsm_mitm_on_receive);
-	cyrf_register_send_callback(dsm_mitm_on_send);
-#else
-	timer_dsm_register_callback(dsm_receiver_on_timer);
-	cyrf_register_recv_callback(dsm_receiver_on_receive);
-	cyrf_register_send_callback(dsm_receiver_on_send);
-#endif
-#endif
+uint16_t dsm_config_size(void) {
+	return sizeof(cyrf_config)/sizeof(cyrf_config[0]);
 }
 
 /**
- * Start with binding
+ * Return the size of the config array
+ * @return The size of the config array
  */
-void dsm_start_bind(void) {
-#if DEBUG && DEBUG_DSM
-	sprintf(cdc_msg, "DSM START BIND\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
-	u8 data_code[16];
-	// Set the CYRF configuration
-	cyrf_set_config(cyrf_bind_config, sizeof(cyrf_bind_config)/2);
-
-	// Set the leds
-	LED_ON(1);
-	LED_OFF(2);
-
-	// Set the CYRF data code
-	memcpy(data_code, pn_codes[0][8], 8);
-	memcpy(data_code + 8, pn_bind, 8);
-	cyrf_set_data_code(data_code);
-
-	// Update the status
-	dsm.status = DSM_BIND;
-
-	// Check if receiver or transmitter
-#ifdef DSM_TRANSMITTER
-	dsm_transmitter_start_bind();
-#else
-#ifdef DSM_MITM
-	dsm_mitm_start_bind();
-#else
-	dsm_receiver_start_bind();
-#endif
-#endif
+uint16_t dsm_bind_config_size(void) {
+	return sizeof(cyrf_bind_config)/sizeof(cyrf_bind_config[0]);
 }
 
 /**
- * Start with sending/receiving
+ * Return the size of the config array
+ * @return The size of the config array
  */
-void dsm_start(void) {
-#if DEBUG && DEBUG_DSM
-	sprintf(cdc_msg, "DSM START\r\n");
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
-	// Set the CYRF configuration
-	cyrf_set_config(cyrf_transfer_config, sizeof(cyrf_transfer_config)/2);
-
-	// Set the leds
-	LED_OFF(1);
-	LED_ON(2);
-
-	dsm.cyrf_mfg_id[0] = 0xF2;
-		dsm.cyrf_mfg_id[1] = 0x39;
-		dsm.cyrf_mfg_id[2] = 0xB7;
-		dsm.cyrf_mfg_id[3] = 0x77;
-
-	// Generate the channels
-	dsm_generate_channels();
-
-	// Calculate the CRC seed, SOP column and Data column
-	dsm.crc_seed = ~((dsm.cyrf_mfg_id[0] << 8) + dsm.cyrf_mfg_id[1]);
-	dsm.sop_col = (dsm.cyrf_mfg_id[0] + dsm.cyrf_mfg_id[1] + dsm.cyrf_mfg_id[2] + 2) & 0x07;
-	dsm.data_col = 7 - dsm.sop_col;
-
-	// Update the status and set channel id to the last
-	dsm.status = DSM_RDY;
-	dsm.ch_idx = IS_DSM2(dsm.protocol)? 1 : 22;
-
-	// Reset the packet loss detection
-	dsm.packet_loss_bit = false;
-	dsm.packet_loss = false;
-
-	// Check if receiver or transmitter
-#ifdef DSM_TRANSMITTER
-	dsm_transmitter_start();
-#else
-#ifdef DSM_MITM
-	dsm_mitm_start();
-#else
-	dsm_receiver_start();
-#endif
-#endif
+uint16_t dsm_transfer_config_size(void) {
+	return sizeof(cyrf_transfer_config)/sizeof(cyrf_transfer_config[0]);
 }
 
 /**
- * Generate the channels
+ * Generate the DSMX channels from the manufacturer ID
+ * @param[in] mfg_id The manufacturer ID where the DSMX channels should be calculated for
+ * @param[out] The channels generated for the manufacturer ID
  */
-static void dsm_generate_channels(void) {
-	// Check if is a DSM2 or DSMX protocol
-	if (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2) {
-		// Just generate 2 random channels
-		dsm.channels[0] = 0x46;
-		dsm.channels[1] = 0x1B;
-	} else {
-		// Calculate the DSMX channels
-		int idx = 0;
-		u32 id = ~((dsm.cyrf_mfg_id[0] << 24) | (dsm.cyrf_mfg_id[1] << 16) |
-					(dsm.cyrf_mfg_id[2] << 8) | (dsm.cyrf_mfg_id[3] << 0));
-		u32 id_tmp = id;
+void dsm_generate_channels_dsmx(uint8_t mfg_id[], uint8_t *channels) {
+	// Calculate the DSMX channels
+	int idx = 0;
+	u32 id = ~((mfg_id[0] << 24) | (mfg_id[1] << 16) |
+				(mfg_id[2] << 8) | (mfg_id[3] << 0));
+	u32 id_tmp = id;
 
-		// While not all channels are set
-		while(idx < 23) {
-			int i;
-			int count_3_27 = 0, count_28_51 = 0, count_52_76 = 0;
+	// While not all channels are set
+	while(idx < 23) {
+		int i;
+		int count_3_27 = 0, count_28_51 = 0, count_52_76 = 0;
 
-			id_tmp = id_tmp * 0x0019660D + 0x3C6EF35F; // Randomization
-			u8 next_ch = ((id_tmp >> 8) % 0x49) + 3;       // Use least-significant byte and must be larger than 3
-			if (((next_ch ^ id) & 0x01 ) == 0)
-				continue;
+		id_tmp = id_tmp * 0x0019660D + 0x3C6EF35F; // Randomization
+		u8 next_ch = ((id_tmp >> 8) % 0x49) + 3;       // Use least-significant byte and must be larger than 3
+		if (((next_ch ^ id) & 0x01 ) == 0)
+			continue;
 
-			// Go trough all already set channels
-			for (i = 0; i < idx; i++) {
-				// Channel is already used
-				if(dsm.channels[i] == next_ch)
-					break;
+		// Go trough all already set channels
+		for (i = 0; i < idx; i++) {
+			// Channel is already used
+			if(channels[i] == next_ch)
+				break;
 
-				// Count the channel groups
-				if(dsm.channels[i] <= 27)
-					count_3_27++;
-				else if (dsm.channels[i] <= 51)
-					count_28_51++;
-				else
-					count_52_76++;
-			}
+			// Count the channel groups
+			if(channels[i] <= 27)
+				count_3_27++;
+			else if (channels[i] <= 51)
+				count_28_51++;
+			else
+				count_52_76++;
+		}
 
-			// When channel is already used continue
-			if (i != idx)
-				continue;
+		// When channel is already used continue
+		if (i != idx)
+			continue;
 
-			// Set the channel when channel groups aren't full
-			if ((next_ch < 28 && count_3_27 < 8)						// Channels 3-27: max 8
-			  || (next_ch >= 28 && next_ch < 52 && count_28_51 < 7)		// Channels 28-52: max 7
-			  || (next_ch >= 52 && count_52_76 < 8)) {					// Channels 52-76: max 8
-				dsm.channels[idx++] = next_ch;
-			}
+		// Set the channel when channel groups aren't full
+		if ((next_ch < 28 && count_3_27 < 8)						// Channels 3-27: max 8
+		  || (next_ch >= 28 && next_ch < 52 && count_28_51 < 7)		// Channels 28-52: max 7
+		  || (next_ch >= 52 && count_52_76 < 8)) {					// Channels 52-76: max 8
+			channels[idx++] = next_ch;
 		}
 	}
+
+	DEBUG(dsm, "Generated DSMX channels for: 0x%02X 0x%02X 0x%02X 0x%02X [0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X]",
+			mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3],
+			channels[0], channels[1], channels[2], channels[3], channels[4], channels[5], channels[6], channels[7], channels[8], channels[9],
+			channels[10], channels[11], channels[12], channels[13], channels[14], channels[15], channels[16], channels[17], channels[18], channels[19],
+			channels[20], channels[21], channels[22]);
 }
 
 /**
  * Set the current channel with SOP, CRC and data code
  * @param[in] channel The channel that needs to be set
+ * @param[in] is_dsm2 Whether we want to set a DSM2 channel
+ * @param[in] sop_col The SOP code column number
+ * @param[in] data_col The DATA code column number
+ * @param[in] crc_seed The cec seed that needs to be set
  */
-void dsm_set_channel(u8 channel) {
+void dsm_set_channel(uint8_t channel, bool is_dsm2, uint8_t sop_col, uint8_t data_col, uint16_t crc_seed) {
 	u8 pn_row;
-	dsm.cur_channel = channel;
-	pn_row = (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2)? channel % 5 : (channel-2) % 5;
-
-#if DEBUG && DEBUG_DSM
-	sprintf(cdc_msg, "DSM SET CHANNEL: 0x%02X (mfg_id[0]: 0x%02X, mfg_id[1]: 0x%02X, mfg_id[2]: 0x%02X, mfg_id[3]: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X)\r\n",
-			channel, dsm.cyrf_mfg_id[0], dsm.cyrf_mfg_id[1], dsm.cyrf_mfg_id[2], dsm.cyrf_mfg_id[3], pn_row, dsm.data_col, dsm.sop_col);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
-#endif
+	pn_row = is_dsm2? channel % 5 : (channel-2) % 5;
 
 	// Update the CRC, SOP and Data code
-	dsm.crc_seed = ~dsm.crc_seed;
-	cyrf_set_crc_seed(dsm.crc_seed);
-	cyrf_set_sop_code(pn_codes[pn_row][dsm.sop_col]);
-	cyrf_set_data_code(pn_codes[pn_row][dsm.data_col]);
+	cyrf_set_crc_seed(crc_seed);
+	cyrf_set_sop_code(pn_codes[pn_row][sop_col]);
+	cyrf_set_data_code(pn_codes[pn_row][data_col]);
 
 	// Change channel
 	cyrf_set_channel(channel);
-}
 
-/**
- * Set the current channel without SOP, CRC and data code
- * @param[in] channel The channel that needs to be set
- */
-void dsm_set_channel_raw(u8 channel) {
-	dsm.cur_channel = channel;
-	cyrf_set_channel(channel);
-}
-
-/**
- * Set to next channel with SOP, CRC and data code
- */
-void dsm_set_next_channel(void) {
-	// Update the channel
-	dsm.ch_idx = (IS_DSM2(dsm.protocol) || DSM_FORCE_DSM2)? (dsm.ch_idx+1) % 2 : (dsm.ch_idx+1) % 23;
-	dsm_set_channel(dsm.channels[dsm.ch_idx]);
+	DEBUG(dsm, "Set channel: 0x%02X (is_dsm2: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X, crc_seed: 0x%04X)",
+					channel, is_dsm2, pn_row, data_col, sop_col, crc_seed);
 }

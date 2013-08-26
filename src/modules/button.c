@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/f1/nvic.h>
 
 #include "button.h"
+#include "config.h"
 
 // Bind button pressed callback
 button_pressed_callback button_pressed_bind = NULL;
@@ -34,6 +35,7 @@ button_pressed_callback button_pressed_bind = NULL;
 void button_init(void) {
 #ifdef USE_BTN_BIND
 	BTN_INIT(BIND);
+	DEBUG(button, "Bind button initialized");
 #endif
 }
 
@@ -43,6 +45,7 @@ void button_init(void) {
 #ifdef USE_BTN_BIND
 void BTN_BIND_ISR(void) {
 	exti_reset_request(BTN_BIND_EXTI);
+	DEBUG(button, "Bind button pressed");
 	if (button_pressed_bind != NULL)
 		button_pressed_bind();
 }

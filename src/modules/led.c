@@ -17,19 +17,12 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
-
 #include "led.h"
 
 /**
  * Initialize the leds
  */
 void led_init(void) {
-#ifdef USE_LED_POWER
-	LED_INIT(POWER);
-	LED_OFF(POWER);
-#endif
 #ifdef USE_LED_1
 	LED_INIT(1);
 	LED_OFF(1);
@@ -37,6 +30,10 @@ void led_init(void) {
 #ifdef USE_LED_2
 	LED_INIT(2);
 	LED_OFF(2);
+#endif
+#ifdef USE_LED_3
+	LED_INIT(3);
+	LED_OFF(3);
 #endif
 }
 

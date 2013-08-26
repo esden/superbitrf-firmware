@@ -24,9 +24,11 @@
 #include <libopencm3/stm32/f1/nvic.h>
 
 #include "timer.h"
+#include "config.h"
 
 /* The timer callbacks */
 timer_on_event _timer_dsm_on_event = NULL;
+uint16_t timer_dsm_value;
 
 /**
  * Initialize the DSM timer
@@ -55,11 +57,7 @@ static void timer_dsm_init(void) {
 	timer_set_oc_mode(TIMER_DSM, TIM_OC1, TIM_OCM_FROZEN);
 
 	// Set timer updates each 10 microseconds
-#if DEBUG && !DSM_RECEIVER && !DSM_MITM
-	timer_set_prescaler(TIMER_DSM, 720000 - 1);
-#else
-	timer_set_prescaler(TIMER_DSM, 720 - 1);
-#endif
+	timer_set_prescaler(TIMER_DSM, (720*usbrf_config.timer_scaler) - 1);
 	timer_set_period(TIMER_DSM, 65535);
 
 	// Start the timer
@@ -79,11 +77,8 @@ void timer_init(void) {
  * @param[in] us The time in microseconds divided by 10
  */
 void timer_dsm_set(u16 us) {
-#if DEBUG && !DSM_RECEIVER && !DSM_MITM
-	u16 new_t = (us*2 + timer_get_counter(TIMER_DSM)) & 65535;
-#else
+	timer_dsm_value = timer_get_counter(TIMER_DSM);
 	u16 new_t = (us + timer_get_counter(TIMER_DSM)) & 65535;
-#endif
 
 	// Update the timer compare value 1
 	timer_set_oc_value(TIMER_DSM, TIM_OC1, new_t);
@@ -91,6 +86,16 @@ void timer_dsm_set(u16 us) {
 	// Clear the interrupt flag and enable the interrupt of compare 1
 	timer_clear_flag(TIMER_DSM, TIM_SR_CC1IF);
 	timer_enable_irq(TIMER_DSM, TIM_DIER_CC1IE);
+}
+
+/**
+ * Get the time since last set
+ */
+uint16_t timer_dsm_get_time(void) {
+	if(timer_get_counter(TIMER_DSM) > timer_dsm_value)
+		return timer_get_counter(TIMER_DSM) -timer_dsm_value;
+
+	return timer_get_counter(TIMER_DSM)+65535 - timer_dsm_value;
 }
 
 /**

@@ -18,45 +18,131 @@
  */
 
 #include <stdlib.h>
-#include <libopencm3/cm3/common.h>
+#include "../modules/config.h"
+#include "../modules/led.h"
+#include "../modules/button.h"
 #include "../modules/timer.h"
 #include "../modules/cyrf6936.h"
+#include "../helper/convert.h"
 
-#include "dsm.h"
-#include "convert.h"
 #include "dsm_transmitter.h"
 
-#if DEBUG
-#include "../modules/cdcacm.h"
-#include <stdio.h>
-#include <string.h>
-#endif
-
-/* The DSM transmitter struct */
 struct DsmTransmitter dsm_transmitter;
 
-static void dsm_transmitter_send(void);
+void dsm_transmitter_start_bind(void);
+void dsm_transmitter_start_transfer(void);
+void dsm_transmitter_timer_cb(void);
+void dsm_transmitter_receive_cb(bool error);
+void dsm_transmitter_send_cb(bool error);
+
+void dsm_transmitter_set_rf_channel(uint8_t chan);
+void dsm_transmitter_set_channel(uint8_t chan);
+void dsm_transmitter_set_next_channel(void);
+
 static void dsm_transmitter_create_bind_packet(void);
-static void dsm_transmitter_create_data_packet(void);
+void dsm_transmitter_create_command_packet(uint8_t commands[]);
 
 /**
- * Start the transmitter binding
+ * DSM Transmitter protocol initialization
  */
-void dsm_transmitter_start_bind(void) {
+void dsm_transmitter_init(void) {
+	uint8_t mfg_id[6];
+	DEBUG(protocol, "DSM Transmitter initializing");
+	dsm_transmitter.status = DSM_TRANSMITTER_STOP;
+
+	// Configure the CYRF
+	cyrf_set_config_len(cyrf_config, dsm_config_size());
+
+	// Read the CYRF MFG
+	cyrf_get_mfg_id(mfg_id);
+
+	// Copy the MFG id
+	if(usbrf_config.dsm_bind_mfg_id[0] == 0 && usbrf_config.dsm_bind_mfg_id[1] == 0 && usbrf_config.dsm_bind_mfg_id[2] == 0 && usbrf_config.dsm_bind_mfg_id[3] == 0)
+		memcpy(dsm_transmitter.mfg_id, mfg_id, 4);
+	else
+		memcpy(dsm_transmitter.mfg_id, usbrf_config.dsm_bind_mfg_id, 4);
+
+	// Copy other config
+	dsm_transmitter.num_channels = usbrf_config.dsm_num_channels;
+	dsm_transmitter.protocol = usbrf_config.dsm_protocol;
+
 	// Stop the timer
 	timer_dsm_stop();
 
-	// Set the status to bind and reset the packet count
-	dsm_transmitter.packet_count = 0;
-	dsm_transmitter.status = DSM_TRANSMITTER_BIND;
-	dsm.protocol = DSM_PROTOCOL;
+	// Set the callbacks
+	timer_dsm_register_callback(dsm_transmitter_timer_cb);
+	cyrf_register_recv_callback(dsm_transmitter_receive_cb);
+	cyrf_register_send_callback(dsm_transmitter_send_cb);
+	button_bind_register_callback(dsm_transmitter_start_bind);
+	cdcacm_register_receive_callback(NULL);
 
-	// Set the CYRF channel (random if not set)
-#ifdef DSM_BIND_CHANNEL
-	dsm_set_channel_raw(DSM_BIND_CHANNEL);
-#else
-	dsm_set_channel_raw(rand() / (RAND_MAX / DSM_MAX_CHANNEL + 1));
+	DEBUG(protocol, "DSM Transmitter initialized 0x%02X 0x%02X 0x%02X 0x%02X", mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3]);
+}
+
+/**
+ * DSM Transmitter protocol start
+ */
+void dsm_transmitter_start(void) {
+	DEBUG(protocol, "DSM Transmitter starting");
+
+	// Check if need to start with binding procedure
+	if(usbrf_config.dsm_start_bind)
+		dsm_transmitter_start_bind();
+	else
+		dsm_transmitter_start_transfer();
+}
+
+/**
+ * DSM Transmitter protocol stop
+ */
+void dsm_transmitter_stop(void) {
+	// Stop the timer
+	timer_dsm_stop();
+	dsm_transmitter.status = DSM_TRANSMITTER_STOP;
+}
+
+
+/**
+ * DSM Transmitter start bind
+ */
+void dsm_transmitter_start_bind(void) {
+	uint8_t data_code[16];
+	DEBUG(protocol, "DSM Transmitter start bind");
+
+	dsm_transmitter.status = DSM_TRANSMITTER_BIND;
+	dsm_transmitter.tx_packet_count = 0;
+
+	// Set the bind led on
+#ifdef LED_BIND
+	LED_ON(LED_BIND);
 #endif
+
+	// Set RX led off
+#ifdef LED_RX
+	LED_OFF(LED_RX);
+#endif
+
+	// Set TX led off
+#ifdef LED_TX
+	LED_OFF(LED_TX);
+#endif
+
+	// Stop the timer
+	timer_dsm_stop();
+
+	// Set the CYRF configuration
+	cyrf_set_config_len(cyrf_bind_config, dsm_bind_config_size());
+
+	// Set the CYRF data code
+	memcpy(data_code, pn_codes[0][8], 8);
+	memcpy(data_code + 8, pn_bind, 8);
+	cyrf_set_data_code(data_code);
+
+	// Set the initial bind channel
+	if(usbrf_config.dsm_bind_channel > 0)
+		dsm_transmitter_set_rf_channel(usbrf_config.dsm_bind_channel);
+	else
+		dsm_transmitter_set_rf_channel(rand() / (RAND_MAX / usbrf_config.dsm_max_channel + 1));
 
 	// Create the bind packet and start transmitting mode
 	dsm_transmitter_create_bind_packet();
@@ -67,15 +153,56 @@ void dsm_transmitter_start_bind(void) {
 }
 
 /**
- * Start transmitting
+ * DSM Transmitter start transfer
  */
-void dsm_transmitter_start(void) {
-	// Stop the timer
-	timer_dsm_stop();
+void dsm_transmitter_start_transfer(void) {
+	DEBUG(protocol, "DSM Transmitter start transfer");
 
-	// Set the status to ready and reset the packet count
-	dsm_transmitter.packet_count = 0;
 	dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
+	dsm_transmitter.rf_channel_idx = 0;
+	dsm_transmitter.tx_packet_count = 0;
+
+	// Set the bind led off
+#ifdef LED_BIND
+	LED_OFF(LED_BIND);
+#endif
+
+	// Set RX led off
+#ifdef LED_RX
+	LED_OFF(LED_RX);
+#endif
+
+	// Set TX led off
+#ifdef LED_TX
+	LED_OFF(LED_TX);
+#endif
+
+	// Set the CYRF configuration
+	cyrf_set_config_len(cyrf_transfer_config, dsm_transfer_config_size());
+
+	dsm_transmitter.num_channels = usbrf_config.dsm_num_channels;
+	dsm_transmitter.protocol = usbrf_config.dsm_protocol;
+	dsm_transmitter.resolution = (dsm_transmitter.protocol & 0x10)>>4;
+
+	// Calculate the CRC seed, SOP column and Data column
+	dsm_transmitter.crc_seed = ~((dsm_transmitter.mfg_id[0] << 8) + dsm_transmitter.mfg_id[1]);
+	dsm_transmitter.sop_col = (dsm_transmitter.mfg_id[0] + dsm_transmitter.mfg_id[1] + dsm_transmitter.mfg_id[2] + 2) & 0x07;
+	dsm_transmitter.data_col = 7 - dsm_transmitter.sop_col;
+
+	DEBUG(protocol, "DSM Transmitter bound(MFG_ID: {0x%02X, 0x%02X, 0x%02X, 0x%02X}, num_channels: 0x%02X, protocol: 0x%02X, resolution: 0x%02X, sop_col: 0x%02X, data_col 0x%02X)",
+				dsm_transmitter.mfg_id[0], dsm_transmitter.mfg_id[1], dsm_transmitter.mfg_id[2], dsm_transmitter.mfg_id[3],
+				dsm_transmitter.num_channels, dsm_transmitter.protocol, dsm_transmitter.resolution, dsm_transmitter.sop_col, dsm_transmitter.data_col);
+
+	// When DSMX generate channels and set channel
+	if(IS_DSMX(dsm_transmitter.protocol)) {
+		dsm_generate_channels_dsmx(dsm_transmitter.mfg_id, dsm_transmitter.rf_channels);
+		dsm_transmitter.rf_channel_idx = 22;
+		dsm_transmitter_set_next_channel();
+	} else {
+		dsm_transmitter.rf_channels[0] = 0x15;
+		dsm_transmitter.rf_channels[1] = 0x3C;
+		dsm_transmitter_set_next_channel();
+	}
 
 	// Start transmitting mode
 	cyrf_start_transmit();
@@ -85,23 +212,22 @@ void dsm_transmitter_start(void) {
 }
 
 /**
- * When the timer send an IRQ
+ * DSM Transmitter timer callback
  */
-bool send_on_chan2 = false;
-void dsm_transmitter_on_timer(void) {
+void dsm_transmitter_timer_cb(void) {
 	// Check the transmitter status
 	switch (dsm_transmitter.status) {
 	case DSM_TRANSMITTER_BIND:
 		// Abort the send
 		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
-		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+		cyrf_write_register(CYRF_RX_ABORT, 0x00);
 
 		// Send the bind packet again
-		dsm_transmitter_send();
+		cyrf_send_len(dsm_transmitter.tx_packet, dsm_transmitter.tx_packet_length);
 
 		// Check for switching back
-		if (dsm_transmitter.packet_count >= DSM_BIND_SEND_COUNT)
-			dsm_start();
+		if (dsm_transmitter.tx_packet_count >= usbrf_config.dsm_bind_packets)
+			dsm_transmitter_start_transfer();
 		else {
 			// Start the timer
 			timer_dsm_set(DSM_BIND_SEND_TIME);
@@ -111,60 +237,46 @@ void dsm_transmitter_on_timer(void) {
 		// Start the timer as first so we make sure the timing is right
 		timer_dsm_stop();
 		timer_dsm_set(DSM_CHA_CHB_SEND_TIME);
-		send_on_chan2 = false;
 
 		// Start transmitting mode
 		cyrf_start_transmit();
 
 		// Update the channel
-		dsm_set_next_channel();
+		dsm_transmitter_set_next_channel();
 
 		// Abort the send
 		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
-		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+		cyrf_write_register(CYRF_RX_ABORT, 0x00);
 
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDB;
 
-		// Send the packet or resend it
-		/*if(dsm.packet_loss)
-			cyrf_resend();
-		else {*/
-			// Create and send the packet
-			dsm_transmitter_create_data_packet();
-			dsm_transmitter_send();
-		//}
+		// Create and send the packet
+		//dsm_transmitter_create_data_packet(); TODO
+		uint8_t commands[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+		dsm_transmitter_create_command_packet(commands);
+		cyrf_send_len(dsm_transmitter.tx_packet, dsm_transmitter.tx_packet_length);
 		break;
 	case DSM_TRANSMITTER_SENDB:
 		// Start the timer as first so we make sure the timing is right
 		timer_dsm_stop();
 		timer_dsm_set(DSM_SEND_TIME - DSM_CHA_CHB_SEND_TIME);
-		send_on_chan2 = true;
 
 		// Start transmitting mode
 		cyrf_start_transmit();
 
 		// Update the channel
-		dsm_set_next_channel();
+		dsm_transmitter_set_next_channel();
 
 		// Abort the send
 		cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_TX | CYRF_FRC_END);
-		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN
+		cyrf_write_register(CYRF_RX_ABORT, 0x00);
 
 		// Change the status
 		dsm_transmitter.status = DSM_TRANSMITTER_SENDA;
 
-		// Send the packet or resend it
-		//if(dsm.packet_loss)
-			//cyrf_resend();
-		    //dsm_transmitter_create_data_packet();
-			dsm_transmitter_send();
-		/*else {
-			// Create and send the packet and beleeive we lost the packet at first
-			dsm_transmitter_create_data_packet();
-			dsm_transmitter_send();
-			dsm.packet_loss = true;
-		}*/
+		// Send same packet again on other channel
+		cyrf_send_len(dsm_transmitter.tx_packet, dsm_transmitter.tx_packet_length);
 		break;
 	default:
 		break;
@@ -172,144 +284,112 @@ void dsm_transmitter_on_timer(void) {
 }
 
 /**
- * When the receive is completed (IRQ)
- * @param[in] error When the receive was with an error
+ * DSM Transmitter receive callback
  */
-void dsm_transmitter_on_receive(bool error) {
-	// Get the receive count
-	u8 length = cyrf_read_register(CYRF_RX_COUNT);
-	u8 start_bytes[2];
-	start_bytes[0] = 0x55;
-	start_bytes[1] = 0xCC;
-
-	// Receive the data
-	cyrf_recv_len(dsm.receive_packet, length);
-
-	// Check if it is a valid packet
-	/*if(error || dsm.receive_packet[0] != dsm.cyrf_mfg_id[2] ||
-			(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] && dsm.receive_packet[1] != dsm.cyrf_mfg_id[3]+1))
-		return;
-
-	// Check for packet loss and don't parse if packet loss
-	if(dsm.receive_packet[1] != dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit) {
-		dsm.packet_loss = true;
-		return;
-	}*/
-
-	//dsm.packet_loss = false;
-	//dsm.packet_loss_bit = !dsm.packet_loss_bit;
-
-	// Handle packet
-	convert_radio_to_cdcacm_insert(&start_bytes, 2);
-	convert_radio_to_cdcacm_insert(&dsm.receive_packet[2], 14);
+void dsm_transmitter_receive_cb(bool error) {
+	(void) error;
 }
 
 /**
- * When the send is completed (IRQ)
- * @param[in] error When the send was with an error
+ * DSM Transmitter send callback
  */
-void dsm_transmitter_on_send(bool error) {
-	// Check if there is no error
-	/*if (error)
-		dsm_transmitter.error_count++;
+void dsm_transmitter_send_cb(bool error) {
+	(void) error;
+	dsm_transmitter.tx_packet_count++;
 
-	dsm_transmitter.sending = 0;*/
+	// Set TX led on
+#ifdef LED_TX
+	LED_ON(LED_TX);
+#endif
+}
 
-	if(send_on_chan2) {
-		/*cyrf_write_register(CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX | CYRF_FRC_END);
-		cyrf_write_register(CYRF_RX_ABORT, 0x00); //TODO: CYRF_RX_ABORT_EN*/
-		dsm_set_channel(0x51);
 
-		// Start receiving for data back in
-		cyrf_start_recv();
-	}
+/**
+ * Change DSM Transmitter RF channel
+ * @param[in] chan The channel that need to be switched to
+ */
+void dsm_transmitter_set_rf_channel(uint8_t chan) {
+	dsm_transmitter.rf_channel = chan;
+	cyrf_set_channel(chan);
 }
 
 /**
- * Create the bind packet
+ * Change DSM Transmitter RF channel and also set SOP, CRC and DATA code
+ * @param[in] chan The channel that need to be switched to
+ */
+void dsm_transmitter_set_channel(uint8_t chan) {
+	dsm_transmitter.crc_seed	= ~dsm_transmitter.crc_seed;
+	dsm_transmitter.rf_channel 	= chan;
+	dsm_set_channel(dsm_transmitter.rf_channel, IS_DSM2(dsm_transmitter.protocol),
+			dsm_transmitter.sop_col, dsm_transmitter.data_col, dsm_transmitter.crc_seed);
+}
+
+/**
+ * Change DSM Transmitter RF channel to the next channel and also set SOP, CRC and DATA code
+ */
+void dsm_transmitter_set_next_channel(void) {
+	dsm_transmitter.rf_channel_idx	= IS_DSM2(dsm_transmitter.protocol)? (dsm_transmitter.rf_channel_idx+1) % 2 : (dsm_transmitter.rf_channel_idx+1) % 23;
+	dsm_transmitter.crc_seed		= ~dsm_transmitter.crc_seed;
+	dsm_transmitter.rf_channel 		= dsm_transmitter.rf_channels[dsm_transmitter.rf_channel_idx];
+	dsm_set_channel(dsm_transmitter.rf_channel, IS_DSM2(dsm_transmitter.protocol),
+			dsm_transmitter.sop_col, dsm_transmitter.data_col, dsm_transmitter.crc_seed);
+}
+
+/**
+ * Create DSM Transmitter Bind packet
  */
 static void dsm_transmitter_create_bind_packet(void) {
 	u8 i;
 	u16 sum = 384 - 0x10;
 
-	dsm.transmit_packet[0] = ~dsm.cyrf_mfg_id[0];
-	dsm.transmit_packet[1] = ~dsm.cyrf_mfg_id[1];
-	dsm.transmit_packet[2] = ~dsm.cyrf_mfg_id[2];
-	dsm.transmit_packet[3] = ~dsm.cyrf_mfg_id[3];
-	dsm.transmit_packet[4] = dsm.transmit_packet[0];
-	dsm.transmit_packet[5] = dsm.transmit_packet[1];
-	dsm.transmit_packet[6] = dsm.transmit_packet[2];
-	dsm.transmit_packet[7] = dsm.transmit_packet[3];
+	dsm_transmitter.tx_packet[0] = ~dsm_transmitter.mfg_id[0];
+	dsm_transmitter.tx_packet[1] = ~dsm_transmitter.mfg_id[1];
+	dsm_transmitter.tx_packet[2] = ~dsm_transmitter.mfg_id[2];
+	dsm_transmitter.tx_packet[3] = ~dsm_transmitter.mfg_id[3];
+	dsm_transmitter.tx_packet[4] = dsm_transmitter.tx_packet[0];
+	dsm_transmitter.tx_packet[5] = dsm_transmitter.tx_packet[1];
+	dsm_transmitter.tx_packet[6] = dsm_transmitter.tx_packet[2];
+	dsm_transmitter.tx_packet[7] = dsm_transmitter.tx_packet[3];
 
 	// Calculate the sum
 	for (i = 0; i < 8; i++)
-		sum += dsm.transmit_packet[i];
+		sum += dsm_transmitter.tx_packet[i];
 
-	dsm.transmit_packet[8] = sum >> 8;
-	dsm.transmit_packet[9] = sum & 0xFF;
-	dsm.transmit_packet[10] = 0x01; //???
-	dsm.transmit_packet[11] = 0x06; // Number of channels, but we use own protocol
-	dsm.transmit_packet[12] = dsm.protocol;
-	dsm.transmit_packet[13] = 0x00; //???
+	dsm_transmitter.tx_packet[8] = sum >> 8;
+	dsm_transmitter.tx_packet[9] = sum & 0xFF;
+	dsm_transmitter.tx_packet[10] = 0x01; //???
+	dsm_transmitter.tx_packet[11] = dsm_transmitter.num_channels;
+	dsm_transmitter.tx_packet[12] = dsm_transmitter.protocol;
+	dsm_transmitter.tx_packet[13] = 0x00; //???
 
 	// Calculate the sum
 	for (i = 8; i < 14; i++)
-		sum += dsm.transmit_packet[i];
+		sum += dsm_transmitter.tx_packet[i];
 
-	dsm.transmit_packet[14] = sum >> 8;
-	dsm.transmit_packet[15] = sum & 0xFF;
+	dsm_transmitter.tx_packet[14] = sum >> 8;
+	dsm_transmitter.tx_packet[15] = sum & 0xFF;
 
 	// Set the length
-	dsm.transmit_packet_length = 16;
+	dsm_transmitter.tx_packet_length = 16;
 }
 
 /**
- * Create the transmitter data packet
+ * Create DSM Transmitter command packet
  */
-static void dsm_transmitter_create_data_packet(void) {
-	if(convert_extract_size(&cdcacm_to_radio) < 14)
-		return;
+void dsm_transmitter_create_command_packet(uint8_t commands[]) {
+	int i;
+	if(IS_DSM2(dsm_transmitter.protocol)) {
+		dsm_transmitter.tx_packet[0] = ~dsm_transmitter.mfg_id[2];
+		dsm_transmitter.tx_packet[1] = ~dsm_transmitter.mfg_id[3];
+	} else {
+		dsm_transmitter.tx_packet[0] = dsm_transmitter.mfg_id[2];
+		dsm_transmitter.tx_packet[1] = dsm_transmitter.mfg_id[3];
+	}
 
-	// Set the first two bytes to the cyrf_mfg_id
-	//dsm.transmit_packet[0] = dsm.cyrf_mfg_id[2];
-	//dsm.transmit_packet[1] = dsm.cyrf_mfg_id[3] + dsm.packet_loss_bit;
+	// Copy the commands
+	for(i = 0; i < 14; i++)
+		dsm_transmitter.tx_packet[i+2] = commands[i];
 
-	dsm.transmit_packet[0] = ~0xB7;
-	dsm.transmit_packet[1] = ~0x77;
-
-	/*dsm.transmit_packet[2] = 0x06;
-	dsm.transmit_packet[3] = 0x2F;
-	dsm.transmit_packet[4] = 0x15;
-	dsm.transmit_packet[5] = 0xFF;
-	dsm.transmit_packet[6] = 0x0A;
-	dsm.transmit_packet[7] = 0x1B;
-	dsm.transmit_packet[8] = 0x10;
-	dsm.transmit_packet[9] = 0x99;
-	dsm.transmit_packet[10] = 0x0D;
-	dsm.transmit_packet[11] = 0xFF;
-	dsm.transmit_packet[12] = 0x18;
-	dsm.transmit_packet[13] = 0x00;
-	dsm.transmit_packet[14] = 0x00;
-	dsm.transmit_packet[15] = 0xA2;*/
-
-	// Fill as much bytes with data
-	dsm.transmit_packet_length = convert_extract(&cdcacm_to_radio, dsm.transmit_packet+2, 14) + 2;
-	// Clean the rest of the packet
-	/*for(i = dsm.transmit_packet_length; i < 16; i++)
-		dsm.transmit_packet[i] = 0x00;*/
-
-	dsm.transmit_packet_length = 16;
-}
-
-/**
- * Send the packet
- */
-static void dsm_transmitter_send(void) {
-	// Check if already sending
-	if (dsm_transmitter.sending)
-		dsm_transmitter.overflow_count++;
-
-	cyrf_send_len(dsm.transmit_packet, dsm.transmit_packet_length);
-	dsm_transmitter.packet_count++;
-	dsm_transmitter.sending = 1;
+	// Set the length
+	dsm_transmitter.tx_packet_length = 16;
 }

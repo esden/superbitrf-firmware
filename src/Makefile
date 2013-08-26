@@ -17,23 +17,16 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = usb_transmitter
+BINARY = usbrf
+LDSCRIPT = ../stm32f103cbt6.ld
+TOOLCHAIN_DIR = ../libopencm3
 
-# Comment the following line if you _don't_ have luftboot flashed!
-LDSCRIPT = ../../stm32f103cbt6.ld
-OBJS += ../modules/led.o ../modules/button.o ../modules/timer.o ../modules/cdcacm.o ../modules/cyrf6936.o
-OBJS += ../protocol/dsm.o ../protocol/dsm_receiver.o ../protocol/dsm_transmitter.o ../protocol/dsm_mitm.o ../protocol/convert.o
+# The modules and helpers used for the usbrf module
+OBJS += modules/led.o modules/button.o modules/timer.o modules/cdcacm.o modules/cyrf6936.o modules/config.o
+OBJS += helper/convert.o helper/dsm.o
 
-# Check if receiver or transmitter
-ifeq ($(RECEIVER),)
-ifeq ($(MITM),)
-CFLAGS += -DDSM_TRANSMITTER
-else
-CFLAGS += -DDSM_MITM
-endif
-else
-CFLAGS += -DDSM_RECEIVER
-endif
+# The different kind of protocols available
+OBJS += protocol/dsm_receiver.o protocol/dsm_transmitter.o protocol/dsm_mitm.o
 
-include ../../Makefile.include
+include ../Makefile.include
 

@@ -20,41 +20,39 @@
 #include <libopencm3/stm32/rcc.h>
 
 /* Load the modules */
-#include "../modules/led.h"
-#include "../modules/button.h"
-#include "../modules/timer.h"
-#include "../modules/cdcacm.h"
-#include "../modules/cyrf6936.h"
+#include "modules/config.h"
+#include "modules/led.h"
+#include "modules/button.h"
+#include "modules/timer.h"
+#include "modules/cdcacm.h"
+#include "modules/cyrf6936.h"
 
-/* Load the DSM protocol and the converter */
-#include "../protocol/dsm.h"
-#include "../protocol/convert.h"
 
 int main(void) {
 	// Setup the clock
 	rcc_clock_setup_in_hse_12mhz_out_72mhz();
 
 	// Initialize the modules
+	config_init();
 	led_init();
-	button_init();
 	timer_init();
 	cdcacm_init();
 
-#ifdef DEBUG
-	while(!cdcacm_is_connected) cdcacm_run();
-#endif
+	// Wait for receive
+	while(!cdcacm_did_receive && usbrf_config.debug_enable) {
+		cdcacm_run();
+	}
 
+	// Initialize other modules
+	button_init();
 	cyrf_init();
-	convert_init();
 
-	// Initialize the DSM protocol
-	dsm_init();
+	// Initialize the protocol
+	protocol_functions[usbrf_config.protocol][PROTOCOL_INIT]();
 
-	// Start the DSM TODO: save the MFG id, so don't have to start in bind
-	dsm_start_bind();
-
-	// Button callback to dsm_start_bind
-	button_bind_register_callback(dsm_start_bind);
+	// Start the protocol at boot
+	if(usbrf_config.protocol_start)
+		protocol_functions[usbrf_config.protocol][PROTOCOL_START]();
 
 	/* The main loop */
 	while (1) {
