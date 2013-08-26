@@ -30,3 +30,7 @@ OBJS += protocol/dsm_receiver.o protocol/dsm_transmitter.o protocol/dsm_mitm.o
 
 include ../Makefile.include
 
+cdw:
+	make flash PREFIX=~/sat/bin/arm-none-eabi TRANSMITTER=1 BMP_PORT=/dev/ttyACM0
+
+
