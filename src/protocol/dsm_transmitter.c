@@ -34,6 +34,7 @@ void dsm_transmitter_start_transfer(void);
 void dsm_transmitter_timer_cb(void);
 void dsm_transmitter_receive_cb(bool error);
 void dsm_transmitter_send_cb(bool error);
+void dsm_transmitter_cdcacm_cb(char *data, int size);
 
 void dsm_transmitter_set_rf_channel(uint8_t chan);
 void dsm_transmitter_set_channel(uint8_t chan);
@@ -56,6 +57,9 @@ void dsm_transmitter_init(void) {
 	// Read the CYRF MFG
 	cyrf_get_mfg_id(mfg_id);
 
+	// Setup the buffer
+	convert_init(&dsm_transmitter.tx_buffer);
+
 	// Copy the MFG id
 	if(usbrf_config.dsm_bind_mfg_id[0] == 0 && usbrf_config.dsm_bind_mfg_id[1] == 0 && usbrf_config.dsm_bind_mfg_id[2] == 0 && usbrf_config.dsm_bind_mfg_id[3] == 0)
 		memcpy(dsm_transmitter.mfg_id, mfg_id, 4);
@@ -74,7 +78,7 @@ void dsm_transmitter_init(void) {
 	cyrf_register_recv_callback(dsm_transmitter_receive_cb);
 	cyrf_register_send_callback(dsm_transmitter_send_cb);
 	button_bind_register_callback(dsm_transmitter_start_bind);
-	cdcacm_register_receive_callback(NULL);
+	cdcacm_register_receive_callback(dsm_transmitter_cdcacm_cb);
 
 	DEBUG(protocol, "DSM Transmitter initialized 0x%02X 0x%02X 0x%02X 0x%02X", mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3]);
 }
@@ -253,8 +257,11 @@ void dsm_transmitter_timer_cb(void) {
 
 		// Create and send the packet
 		//dsm_transmitter_create_data_packet(); TODO
-		uint8_t commands[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-		dsm_transmitter_create_command_packet(commands);
+		if(convert_extract_size(&dsm_transmitter.tx_buffer) > 14) {
+			uint8_t tx_data[14];
+			convert_extract(&dsm_transmitter.tx_buffer, tx_data, 14);
+			dsm_transmitter_create_command_packet(tx_data);
+		}
 		cyrf_send_len(dsm_transmitter.tx_packet, dsm_transmitter.tx_packet_length);
 		break;
 	case DSM_TRANSMITTER_SENDB:
@@ -301,6 +308,13 @@ void dsm_transmitter_send_cb(bool error) {
 #ifdef LED_TX
 	LED_ON(LED_TX);
 #endif
+}
+
+/**
+ * DSM Transmitter CDCACM receive callback
+ */
+void dsm_transmitter_cdcacm_cb(char *data, int size) {
+	convert_insert(&dsm_transmitter.tx_buffer, (uint8_t*)data, size);
 }
 
 

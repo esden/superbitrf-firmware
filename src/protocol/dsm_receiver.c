@@ -216,6 +216,7 @@ void dsm_receiver_timer_cb(void) {
 		timer_dsm_set(DSM_BIND_RECV_TIME);
 		break;
 	case DSM_RECEIVER_SYNC_A:
+	case DSM_RECEIVER_SYNC_B:
 		// When we are in DSM2 mode we need to scan all channels
 		if(IS_DSM2(dsm_receiver.protocol)) {
 			// Set the next channel
@@ -226,13 +227,6 @@ void dsm_receiver_timer_cb(void) {
 		}
 
 		cyrf_start_recv();
-
-		// Set the new timeout
-		timer_dsm_set(DSM_SYNC_RECV_TIME);
-		break;
-	case DSM_RECEIVER_SYNC_B:
-		// We are out of sync and start syncing again
-		dsm_receiver.status = DSM_RECEIVER_SYNC_A;
 
 		// Set the new timeout
 		timer_dsm_set(DSM_SYNC_RECV_TIME);
@@ -353,14 +347,8 @@ void dsm_receiver_receive_cb(bool error) {
 
 		// Check whether it is DSM2 or DSMX
 		if(IS_DSM2(dsm_receiver.protocol)) {
-			uint8_t diff_channels = (dsm_receiver.mfg_id[0]+dsm_receiver.mfg_id[1]) % 0x27 + 0x27;
-			if(dsm_receiver.crc_seed != ((dsm_receiver.mfg_id[0] << 8) + dsm_receiver.mfg_id[1])) {
-				dsm_receiver.rf_channels[0] = dsm_receiver.rf_channel;
-				dsm_receiver.rf_channels[1] = (dsm_receiver.rf_channel + diff_channels) % DSM_MAX_CHANNEL;
-			} else {
-				dsm_receiver.rf_channels[0] = dsm_receiver.rf_channel;
-				dsm_receiver.rf_channels[1] = (dsm_receiver.rf_channel + DSM_MAX_CHANNEL - diff_channels) % DSM_MAX_CHANNEL;
-			}
+			dsm_receiver.rf_channels[0] = dsm_receiver.rf_channel;
+			dsm_receiver.rf_channels[1] = dsm_receiver.rf_channel;
 
 			dsm_receiver.status = DSM_RECEIVER_SYNC_B;
 		} else {
@@ -368,6 +356,7 @@ void dsm_receiver_receive_cb(bool error) {
 			dsm_receiver.status = DSM_RECEIVER_RECV;
 			dsm_receiver.missed_packets = 0;
 		}
+
 		// Set the next channel and start receiving
 		dsm_receiver_set_next_channel();
 		cyrf_start_recv();
@@ -386,19 +375,28 @@ void dsm_receiver_receive_cb(bool error) {
 		if (error && (rx_status & CYRF_BAD_CRC))
 			dsm_receiver.crc_seed = ~dsm_receiver.crc_seed;
 
-		DEBUG(protocol, "Synchronized channel B 0x%02X", dsm_receiver.rf_channel);
+		// Set the appropriate channel
+		if(dsm_receiver.crc_seed != ((dsm_receiver.mfg_id[0] << 8) + dsm_receiver.mfg_id[1]))
+			dsm_receiver.rf_channels[0] = dsm_receiver.rf_channel;
+		else
+			dsm_receiver.rf_channels[1] = dsm_receiver.rf_channel;
 
-		// Stop the timer
-		timer_dsm_stop();
+		// Check if we have both channels
+		if(dsm_receiver.rf_channels[0] != dsm_receiver.rf_channels[1]) {
+			DEBUG(protocol, "Synchronized channel B 0x%02X", dsm_receiver.rf_channel);
 
-		// Set the next channel and start receiving
-		dsm_receiver.status = DSM_RECEIVER_RECV;
-		dsm_receiver.missed_packets = 0;
-		dsm_receiver_set_next_channel();
-		cyrf_start_recv();
+			// Stop the timer
+			timer_dsm_stop();
 
-		// Start the timer
-		timer_dsm_set(DSM_RECV_TIME);
+			// Set the next channel and start receiving
+			dsm_receiver.status = DSM_RECEIVER_RECV;
+			dsm_receiver.missed_packets = 0;
+			dsm_receiver_set_next_channel();
+			cyrf_start_recv();
+
+			// Start the timer
+			timer_dsm_set(DSM_RECV_TIME);
+		}
 		break;
 	case DSM_RECEIVER_RECV:
 		// If other error than bad CRC or MFG id doesn't match reject the packet

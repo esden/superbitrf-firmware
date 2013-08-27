@@ -293,6 +293,9 @@ void cdcacm_register_receive_callback(cdcacm_receive_callback callback) {
 bool cdcacm_send(const char *data, const int size) {
 	int i = 0;
 
+	if(size == 0)
+		return true;
+
 	while ((size - (i * 64)) > 64) {
 		while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);
 		i++;

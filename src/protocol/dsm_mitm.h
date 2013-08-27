@@ -51,6 +51,7 @@ struct DsmMitm {
 	uint8_t data_col;							/**< The DATA column number */
 	uint16_t crc_seed;							/**< The CRC seed */
 
+	uint8_t packet_loss_bit;					/**< Packet loss bit */
 	uint8_t missed_packets;						/**< Missed packets since last receive */
 	uint8_t num_channels;						/**< The number of channels the transmitter is sending commands over (not RF channels) */
 

@@ -21,6 +21,7 @@
 #define PROTOCOL_DSM_TRANSMITTER_H_
 
 #include "../helper/dsm.h"
+#include "../helper/convert.h"
 
 enum dsm_transmitter_status {
 	DSM_TRANSMITTER_STOP		= 0x0,			/**< The transmitter is stopped */
@@ -47,6 +48,8 @@ struct DsmTransmitter {
 	uint8_t data_col;							/**< The DATA column number */
 	uint16_t crc_seed;							/**< The CRC seed */
 	uint8_t num_channels;						/**< The number of channels the transmitter is sending commands over (not RF channels) */
+
+	struct Buffer tx_buffer;					/**< The transmit buffer */
 };
 
 /* External functions */

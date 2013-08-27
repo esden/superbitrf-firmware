@@ -40,6 +40,20 @@ void dsm_mitm_set_next_channel(void);
 
 void dsm_mitm_create_packet(uint8_t data[], uint8_t length);
 
+void Delay2(u32 x);
+void Delay2(u32 x)
+{
+    (void)x;
+    __asm ("mov r1, #24;"
+         "mul r0, r0, r1;"
+         "b _delaycmp;"
+         "_delayloop:"
+         "subs r0, r0, #1;"
+         "_delaycmp:;"
+         "cmp r0, #0;"
+         " bne _delayloop;");
+}
+
 /**
  * DSM MITM protocol initialization
  */
@@ -228,6 +242,7 @@ void dsm_mitm_timer_cb(void) {
 		timer_dsm_set(DSM_BIND_RECV_TIME);
 		break;
 	case DSM_MITM_SYNC_A:
+	case DSM_MITM_SYNC_B:
 		// When we are in DSM2 mode we need to scan all channels
 		if(IS_DSM2(dsm_mitm.protocol)) {
 			// Set the next channel
@@ -238,13 +253,6 @@ void dsm_mitm_timer_cb(void) {
 		}
 
 		cyrf_start_recv();
-
-		// Set the new timeout
-		timer_dsm_set(DSM_SYNC_RECV_TIME);
-		break;
-	case DSM_MITM_SYNC_B:
-		// We are out of sync and start syncing again
-		dsm_mitm.status = DSM_MITM_SYNC_A;
 
 		// Set the new timeout
 		timer_dsm_set(DSM_SYNC_RECV_TIME);
@@ -303,7 +311,7 @@ void dsm_mitm_receive_cb(bool error) {
 		return;
 
 	// Send a debug message that we have received a packet
-	DEBUG(protocol, "DSM MITM receive (channel: 0x%02X, packet_length: 0x%02X)", dsm_mitm.rf_channel, packet_length);
+	//DEBUG(protocol, "DSM MITM receive (channel: 0x%02X, packet_length: 0x%02X)", dsm_mitm.rf_channel, packet_length);
 
 	// Check the receiver status
 	switch (dsm_mitm.status) {
@@ -351,7 +359,7 @@ void dsm_mitm_receive_cb(bool error) {
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if(error && !(rx_status & CYRF_BAD_CRC))
 			break;
-		if(!CHECK_MFG_ID(dsm_mitm.protocol, packet, dsm_mitm.mfg_id))
+		if(!CHECK_MFG_ID_BOTH(dsm_mitm.protocol, packet, dsm_mitm.mfg_id))
 			break;
 
 		// Invert the CRC when received bad CRC
@@ -365,14 +373,8 @@ void dsm_mitm_receive_cb(bool error) {
 
 		// Check whether it is DSM2 or DSMX
 		if(IS_DSM2(dsm_mitm.protocol)) {
-			uint8_t diff_channels = (dsm_mitm.mfg_id[0]+dsm_mitm.mfg_id[1]) % 0x27 + 0x27;
-			if(dsm_mitm.crc_seed != ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1])) {
-				dsm_mitm.rf_channels[0] = dsm_mitm.rf_channel;
-				dsm_mitm.rf_channels[1] = (dsm_mitm.rf_channel + diff_channels) % DSM_MAX_CHANNEL;
-			} else {
-				dsm_mitm.rf_channels[0] = dsm_mitm.rf_channel;
-				dsm_mitm.rf_channels[1] = (dsm_mitm.rf_channel + DSM_MAX_CHANNEL - diff_channels) % DSM_MAX_CHANNEL;
-			}
+			dsm_mitm.rf_channels[0] = dsm_mitm.rf_channel;
+			dsm_mitm.rf_channels[1] = dsm_mitm.rf_channel;
 
 			dsm_mitm.status = DSM_MITM_SYNC_B;
 		} else {
@@ -391,26 +393,35 @@ void dsm_mitm_receive_cb(bool error) {
 		// If other error than bad CRC or MFG id doesn't match reject the packet
 		if(error && !(rx_status & CYRF_BAD_CRC))
 			break;
-		if(!CHECK_MFG_ID(dsm_mitm.protocol, packet, dsm_mitm.mfg_id))
+		if(!CHECK_MFG_ID_BOTH(dsm_mitm.protocol, packet, dsm_mitm.mfg_id))
 			break;
 
 		// Invert the CRC when received bad CRC
 		if (error && (rx_status & CYRF_BAD_CRC))
 			dsm_mitm.crc_seed = ~dsm_mitm.crc_seed;
 
-		DEBUG(protocol, "Synchronized channel B 0x%02X", dsm_mitm.rf_channel);
+		// Set the appropriate channel
+		if(dsm_mitm.crc_seed != ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1]))
+			dsm_mitm.rf_channels[0] = dsm_mitm.rf_channel;
+		else
+			dsm_mitm.rf_channels[1] = dsm_mitm.rf_channel;
 
-		// Stop the timer
-		timer_dsm_stop();
+		// Check if we have both channels
+		if(dsm_mitm.rf_channels[0] != dsm_mitm.rf_channels[1]) {
+			DEBUG(protocol, "Synchronized channel B 0x%02X", dsm_mitm.rf_channel);
 
-		// Set the next channel and start receiving
-		dsm_mitm.status = DSM_MITM_RECV;
-		dsm_mitm.missed_packets = 0;
-		dsm_mitm_set_next_channel();
-		cyrf_start_recv();
+			// Stop the timer
+			timer_dsm_stop();
 
-		// Start the timer
-		timer_dsm_set(DSM_RECV_TIME);
+			// Set the next channel and start receiving
+			dsm_mitm.status = DSM_MITM_RECV;
+			dsm_mitm.missed_packets = 0;
+			dsm_mitm_set_next_channel();
+			cyrf_start_recv();
+
+			// Start the timer
+			timer_dsm_set(DSM_RECV_TIME);
+		}
 		break;
 	case DSM_MITM_RECV:
 		// If other error than bad CRC or MFG id doesn't match reject the packet
@@ -440,11 +451,16 @@ void dsm_mitm_receive_cb(bool error) {
 
 			// Check if we need to send a packet
 			if(usbrf_config.dsm_mitm_has_uplink) {
-				uint8_t tx_data[14];
-				uint8_t tx_size = convert_extract(&dsm_mitm.tx_buffer, tx_data, 14);
-				dsm_mitm_create_packet(tx_data, tx_size);
+				// Only create packet without packet loss
+				if(packet[1] != ((dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF) || packet[1] == ((~dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF)) {
+					dsm_mitm.packet_loss_bit = !dsm_mitm.packet_loss_bit;
+					uint8_t tx_data[14];
+					uint8_t tx_size = convert_extract(&dsm_mitm.tx_buffer, tx_data, 14);
+					dsm_mitm_create_packet(tx_data, tx_size);
+				}
 
-				// Send the packet
+				// Send the packet with a timeout, need to fix the sleep
+				//Delay2(400);
 				cyrf_send_len(dsm_mitm.tx_packet, dsm_mitm.tx_packet_length);
 			} else {
 				// Start receiving on next channel
@@ -453,17 +469,20 @@ void dsm_mitm_receive_cb(bool error) {
 
 				// Start the timer (short or long)
 				if(dsm_mitm.crc_seed == ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1]))
-					timer_dsm_set(DSM_RECV_TIME_SHORT-timer_dsm_get_time());
+					timer_dsm_set(DSM_RECV_TIME_SHORT);
 				else
-					timer_dsm_set(DSM_RECV_TIME-timer_dsm_get_time());
+					timer_dsm_set(DSM_RECV_TIME);
 			}
+
+			// Output the data received
+			cdcacm_send((char*)&packet[2], packet_length-2);
 		} else {
 			// Convert the channels
 			static int16_t channels[14];
 			convert_radio_to_channels(&packet[2], dsm_mitm.num_channels, dsm_mitm.resolution, channels);
 
-			DEBUG(protocol, "Receive commands channel[0x%02X]: 0x%02X (timing %s: %u)", dsm_mitm.rf_channel_idx, dsm_mitm.rf_channel,
-					dsm_mitm.crc_seed == ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1])? "short":"long", timer_dsm_get_time());
+			//DEBUG(protocol, "Receive commands channel[0x%02X]: 0x%02X (timing %s: %u)", dsm_mitm.rf_channel_idx, dsm_mitm.rf_channel,
+				//	dsm_mitm.crc_seed == ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1])? "short":"long", timer_dsm_get_time());
 
 			// Go to the next channel if needed
 			if(usbrf_config.dsm_mitm_both_data || dsm_mitm.crc_seed != ((dsm_mitm.mfg_id[0] << 8) + dsm_mitm.mfg_id[1])) {
@@ -556,10 +575,10 @@ void dsm_mitm_create_packet(uint8_t data[], uint8_t length) {
 	int i;
 	if(IS_DSM2(dsm_mitm.protocol)) {
 		dsm_mitm.tx_packet[0] = ~dsm_mitm.mfg_id[2];
-		dsm_mitm.tx_packet[1] = ~dsm_mitm.mfg_id[3];
+		dsm_mitm.tx_packet[1] = (~dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF;
 	} else {
 		dsm_mitm.tx_packet[0] = dsm_mitm.mfg_id[2];
-		dsm_mitm.tx_packet[1] = dsm_mitm.mfg_id[3];
+		dsm_mitm.tx_packet[1] = (dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF;
 	}
 
 	// Copy the commands

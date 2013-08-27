@@ -35,7 +35,7 @@ void config_init(void) {
 			.version					= 0x01,
 			.protocol					= DSM_MITM,
 			.protocol_start 			= true,
-			.debug_enable 				= true,
+			.debug_enable 				= false,
 			.debug_button				= true,
 			.debug_cyrf6936				= false,
 			.debug_dsm					= false,
