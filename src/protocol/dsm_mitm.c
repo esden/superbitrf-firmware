@@ -452,15 +452,15 @@ void dsm_mitm_receive_cb(bool error) {
 			// Check if we need to send a packet
 			if(usbrf_config.dsm_mitm_has_uplink) {
 				// Only create packet without packet loss
-				if(packet[1] != ((dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF) || packet[1] == ((~dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF)) {
+				//if(packet[1] == ((dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF) || packet[1] == ((~dsm_mitm.mfg_id[3]+1+dsm_mitm.packet_loss_bit)&0xFF)) {
 					dsm_mitm.packet_loss_bit = !dsm_mitm.packet_loss_bit;
 					uint8_t tx_data[14];
 					uint8_t tx_size = convert_extract(&dsm_mitm.tx_buffer, tx_data, 14);
 					dsm_mitm_create_packet(tx_data, tx_size);
-				}
+				//}
 
 				// Send the packet with a timeout, need to fix the sleep
-				//Delay2(400);
+				Delay2(200);
 				cyrf_send_len(dsm_mitm.tx_packet, dsm_mitm.tx_packet_length);
 			} else {
 				// Start receiving on next channel
