@@ -16,18 +16,16 @@
 ##
 ## You should have received a copy of the GNU Lesser General Public License
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
-##
 
-PREFIX	?= arm-none-eabi
-#PREFIX		?= arm-elf
-CC		= $(PREFIX)-gcc
-LD		= $(PREFIX)-gcc
-OBJCOPY		= $(PREFIX)-objcopy
-OBJDUMP		= $(PREFIX)-objdump
-GDB		= $(PREFIX)-gdb
+PREFIX    ?= arm-none-eabi
+CC         = $(PREFIX)-gcc
+LD         = $(PREFIX)-gcc
+OBJCOPY    = $(PREFIX)-objcopy
+OBJDUMP    = $(PREFIX)-objdump
+GDB        = $(PREFIX)-gdb
 
 TOOLCHAIN_DIR ?= ../../libopencm3
-ifeq ($(wildcard ../../libopencm3/lib/libopencm3_stm32f1.a),)
+ifeq ($(wildcard $(TOOLCHAIN_DIR)/lib/libopencm3_stm32f1.a),)
 ifneq ($(strip $(shell which $(CC))),)
 TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
 endif
@@ -126,8 +124,8 @@ flash: $(BINARY).flash
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	$(Q)rm -f *.o
-	$(Q)rm -f *.d
+	$(Q)find -name *.o -delete
+	$(Q)find -name *.d -delete
 	$(Q)rm -f *.elf
 	$(Q)rm -f *.bin
 	$(Q)rm -f *.hex

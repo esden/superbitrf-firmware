@@ -17,7 +17,7 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-TEST_TARGETS := test/blink test/usb_cdcacm
+TEST_TARGETS := test/blink test/usb_cdcacm test/transfer
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
@@ -26,7 +26,7 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
-all: lib tests
+all: lib tests main
 
 $(TEST_TARGETS): lib
 	@printf "  BUILD   $@\n";
@@ -35,6 +35,9 @@ $(TEST_TARGETS): lib
 tests: $(TEST_TARGETS)
 	$(Q)true
 
+main: lib
+	@printf "  BUILD   main\n";
+	$(Q)$(MAKE) --directory=src
 
 lib:
 	$(Q)if [ ! "`ls -A libopencm3`" ] ; then \
@@ -56,6 +59,7 @@ clean:
 			printf "  CLEAN   $$i\n"; \
 			$(MAKE) -C $$i clean SRCLIBDIR=$(SRCLIBDIR) || exit $?; \
 		fi; \
-	done	
+	done
+	$(Q)$(MAKE) -C main clean	
 
 .PHONY: all lib

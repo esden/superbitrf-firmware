@@ -1,7 +1,7 @@
 ##
-## This file is part of the libopencm3 project.
+## This file is part of the superbitrf project.
 ##
-## Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+## Copyright (C) 2013 Freek van Tienen <freek.v.tienen@gmail.com>
 ##
 ## This library is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Lesser General Public License as published by
@@ -17,9 +17,17 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = blink
+BINARY = transfer
+
+OBJS += ../../src/modules/led.o ../../src/modules/timer.o ../../src/modules/cdcacm.o ../../src/modules/cyrf6936.o
 
 LDSCRIPT = ../../stm32f103cbt6.ld
 
-include ../../Makefile.include
+# Check if receiver or transmitter
+ifeq ($(RECEIVER),)
+CFLAGS += -DTRANSMITTER
+else
+CFLAGS += -DRECEIVER
+endif
 
+include ../../Makefile.include

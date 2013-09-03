@@ -1,0 +1,8 @@
+------------------------------------------------------------------------------
+README
+------------------------------------------------------------------------------
+
+This is an example of a data transfer between two usbrf modules.
+It includes a transmitter and a receiver, and to compile the receiver add "RECEIVER=1" to your make command.
+
+It will toggle the red light when the packet is transmitted or received, and it will toggle the orange light when the packet was correctly transmitted or received.

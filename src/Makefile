@@ -17,9 +17,25 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = blink
+BINARY = usbrf
+LDSCRIPT = ../stm32f103cbt6.ld
+TOOLCHAIN_DIR = ../libopencm3
 
-LDSCRIPT = ../../stm32f103cbt6.ld
+# The modules and helpers used for the usbrf module
+OBJS += modules/led.o modules/button.o modules/timer.o modules/cdcacm.o modules/cyrf6936.o modules/config.o
+OBJS += helper/convert.o helper/dsm.o
 
-include ../../Makefile.include
+# The different kind of protocols available
+OBJS += protocol/dsm_receiver.o protocol/dsm_transmitter.o protocol/dsm_mitm.o
+
+include ../Makefile.include
+
+ifeq ($(BOARD),2)
+CFLAGS += -DBOARD_V1_0
+endif
+
+
+cdw:
+	make flash PREFIX=~/sat/bin/arm-none-eabi BMP_PORT=/dev/ttyACM0
+
 
