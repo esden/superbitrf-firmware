@@ -352,6 +352,8 @@ void dsm_mitm_receive_cb(bool error) {
 		usbrf_config.dsm_num_channels = packet[11];
 		usbrf_config.dsm_protocol = packet[12];
 
+		DEBUG(protocol, "Binded with values : mfg_id[0-3]=0x%02X; 0x%02X; 0x%02X; 0x%02X, num_channel=0x%02X; protocol=0x%02X", dsm_mitm.mfg_id[0], dsm_mitm.mfg_id[1], dsm_mitm.mfg_id[2], dsm_mitm.mfg_id[3], usbrf_config.dsm_num_channels, usbrf_config.dsm_protocol);
+
 		// Start receiver
 		dsm_mitm_start_transfer();
 		break;
