@@ -36,6 +36,6 @@ endif
 
 
 cdw:
-	make flash PREFIX=~/sat/bin/arm-none-eabi BMP_PORT=/dev/ttyACM0
+	make flash BMP_PORT=/dev/ttyACM0
 
 
