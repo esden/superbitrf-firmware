@@ -60,6 +60,5 @@ clean:
 			$(MAKE) -C $$i clean SRCLIBDIR=$(SRCLIBDIR) || exit $?; \
 		fi; \
 	done
-	$(Q)$(MAKE) -C main clean	
 
 .PHONY: all lib
