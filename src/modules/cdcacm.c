@@ -173,9 +173,9 @@ static const struct usb_config_descriptor config = {
 
 // The usb strings
 static const char *usb_strings[] = {
-	"Black Sphere Technologies",
-	"SuperbitRF",
-	"DEMO",
+	"1 BIT SQUARED",
+	"Superbit USBRF",
+	(const char *)0x8001FF0,
 };
 
 /**
