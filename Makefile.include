@@ -132,46 +132,17 @@ clean:
 	$(Q)rm -f *.srec
 	$(Q)rm -f *.list
 
-ifeq ($(STLINK_PORT),)
 ifeq ($(BMP_PORT),)
-ifeq ($(OOCD_SERIAL),)
-%.flash: %.hex
+%.flash: %.bin
 	@printf "  FLASH   $<\n"
 	@# IMPORTANT: Don't use "resume", only "reset" will work correctly!
-	$(Q)$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
-		    -f board/$(OOCD_BOARD).cfg \
-		    -c "init" -c "reset init" \
-		    -c "stm32f1x mass_erase 0" \
-		    -c "flash write_image $(*).hex" \
-		    -c "reset" \
-		    -c "shutdown" $(NULL)
-else
-%.flash: %.hex
-	@printf "  FLASH   $<\n"
-	@# IMPORTANT: Don't use "resume", only "reset" will work correctly!
-	$(Q)$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
-		    -f board/$(OOCD_BOARD).cfg \
-		    -c "ft2232_serial $(OOCD_SERIAL)" \
-		    -c "init" -c "reset init" \
-		    -c "stm32f1x mass_erase 0" \
-		    -c "flash write_image $(*).hex" \
-		    -c "reset" \
-		    -c "shutdown" $(NULL)
-endif
+	$(Q)../scripts/stm32_mem.py $(*).bin
 else
 %.flash: %.elf
 	@echo "  GDB   $(*).elf (flash)"
 	$(Q)$(GDB) --batch \
 		   -ex 'target extended-remote $(BMP_PORT)' \
-		   -x $(TOOLCHAIN_DIR)/scripts/black_magic_probe_flash.scr \
-		   $(*).elf
-endif
-else
-%.flash: %.elf
-	@echo "  GDB   $(*).elf (flash)"
-	$(Q)$(GDB) --batch \
-		   -ex 'target extended-remote $(STLINK_PORT)' \
-		   -x $(SCRIPT_DIR)/libopencm3/scripts/stlink_flash.scr \
+		   -x ../bmp_swd_flash.scr \
 		   $(*).elf
 endif
 
