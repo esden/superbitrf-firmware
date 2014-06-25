@@ -52,6 +52,9 @@ lib:
 	fi
 	$(Q)$(MAKE) -C libopencm3
 
+flash: main
+	$(Q)$(MAKE) -C src flash
+
 clean:
 	$(Q)$(MAKE) -C libopencm3 clean
 	$(Q)for i in $(TEST_TARGETS); do \
