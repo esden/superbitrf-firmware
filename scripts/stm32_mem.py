@@ -32,7 +32,7 @@ import dfu
 import time
 
 APP_ADDRESS = 0x08002000
-SECTOR_SIZE = 2048
+SECTOR_SIZE = 1024
 
 CMD_GETCOMMANDS = 0x00
 CMD_SETADDRESSPOINTER = 0x21
@@ -187,6 +187,9 @@ if __name__ == "__main__":
 
     if not stm32devs:
         print("Could not find STM32 (Superbit USBRF) device.")
+        print("You might not have permission to access USB.")
+        print("You might need to run the script as root.")
+        print("Try \"sudo make flash\"")
         exit(1)
 
     if len(stm32devs) > 1:
