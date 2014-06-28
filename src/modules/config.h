@@ -99,5 +99,7 @@ extern struct Config usbrf_config;
  * External functions
  */
 void config_init(void);
+void config_store(void);
+void config_load(struct Config *config);
 
 #endif /* MODULES_CONFIG_H_ */

@@ -323,8 +323,10 @@ void dsm_receiver_receive_cb(bool error) {
 		dsm_receiver.mfg_id[1] = ~packet[1];
 		dsm_receiver.mfg_id[2] = ~packet[2];
 		dsm_receiver.mfg_id[3] = ~packet[3];
+		memcpy(usbrf_config.dsm_bind_mfg_id, dsm_receiver.mfg_id, 4);
 		usbrf_config.dsm_num_channels = packet[11];
 		usbrf_config.dsm_protocol = packet[12];
+		config_store();
 
 		// Start receiver
 		dsm_receiver_start_transfer();

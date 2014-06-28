@@ -349,8 +349,10 @@ void dsm_mitm_receive_cb(bool error) {
 		dsm_mitm.mfg_id[1] = ~packet[1];
 		dsm_mitm.mfg_id[2] = ~packet[2];
 		dsm_mitm.mfg_id[3] = ~packet[3];
+		memcpy(usbrf_config.dsm_bind_mfg_id, dsm_mitm.mfg_id, 4);
 		usbrf_config.dsm_num_channels = packet[11];
 		usbrf_config.dsm_protocol = packet[12];
+		config_store();
 
 		DEBUG(protocol, "Binded with values : mfg_id[0-3]=0x%02X; 0x%02X; 0x%02X; 0x%02X, num_channel=0x%02X; protocol=0x%02X", dsm_mitm.mfg_id[0], dsm_mitm.mfg_id[1], dsm_mitm.mfg_id[2], dsm_mitm.mfg_id[3], usbrf_config.dsm_num_channels, usbrf_config.dsm_protocol);
 
