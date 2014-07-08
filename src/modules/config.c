@@ -115,6 +115,11 @@ void config_store(void) {
 
 }
 
+/**
+ * Load the config from flash.
+ * This is definitely not the most efficient way of reading out the data. But
+ * as we do it only once it probably does not matter much. (esden)
+ */
 void config_load(struct Config *config) {
 	uint16_t size = sizeof(struct Config);
 	uint16_t *flash_data = (uint16_t *)CONFIG_ADDR;
