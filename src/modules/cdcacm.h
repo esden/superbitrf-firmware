@@ -24,10 +24,8 @@
 #include "../board.h"
 
 typedef void (*cdcacm_receive_callback) (char *data, int size);
-extern bool cdcacm_did_receive;
 
 void cdcacm_init(void);
-void cdcacm_run(void);
 void cdcacm_register_receive_callback(cdcacm_receive_callback callback);
 bool cdcacm_send(const char *data, const int size);
 

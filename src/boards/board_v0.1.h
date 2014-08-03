@@ -52,6 +52,10 @@
 #define USB_DETACH_PORT				GPIOA							/**< The USB Detach GPIO base address */
 #define USB_DETACH_PIN				GPIO8							/**< The USB Detach GPIO pin */
 #define USB_DETACH_CLK				RCC_APB2ENR_IOPAEN				/**< The USB Detach GPIO clock */
+#define USB_VBUS_PORT					GPIOA
+#define USB_VBUS_PIN					GPIO10
+#define USB_VBUS_CLK					RCC_APB2ENR_IOPAEN				/**< The USB Detach GPIO clock */
+#define USB_VBUS_IRQ					NVIC_EXTI15_10_IRQ
 
 /* Define the CYRF6936 chip */
 #define CYRF_DEV_SPI				SPI1							/**< The SPI connection number */

@@ -37,13 +37,6 @@ int main(void) {
 	led_init();
 	timer_init();
 	cdcacm_init();
-
-	// Wait for receive
-	while(!cdcacm_did_receive && usbrf_config.debug_enable) {
-		cdcacm_run();
-	}
-
-	// Initialize other modules
 	button_init();
 	cyrf_init();
 
@@ -55,10 +48,7 @@ int main(void) {
 		protocol_functions[usbrf_config.protocol][PROTOCOL_START]();
 
 	/* The main loop */
-	while (1) {
-		// Run the cdcacm TODO: fix polling
-		cdcacm_run();
-	}
+	while (1);
 
 	return 0;
 }
