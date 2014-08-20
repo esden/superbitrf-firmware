@@ -31,7 +31,7 @@ cdcacm_receive_callback _cdcacm_receive_callback = NULL;
 // The usbd device
 usbd_device *cdacm_usbd_dev = NULL;
 // The usbd control buffer
-u8 cdacm_usbd_control_buffer[128];
+uint8_t cdacm_usbd_control_buffer[128];
 bool cdcacm_did_receive = false;
 
 // The usb device descriptor
@@ -182,7 +182,7 @@ static const char *usb_strings[] = {
  * CDCACM control request received
  */
 static int cdcacm_control_request(usbd_device *usbd_dev,
-		struct usb_setup_data *req, u8 **buf, u16 *len,
+		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
 		void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req)) {
 	(void) complete;
 	(void) buf;
@@ -208,7 +208,7 @@ static int cdcacm_control_request(usbd_device *usbd_dev,
 /**
  * CDCACM recieve callback
  */
-static void cdcacm_data_rx_cb(usbd_device *usbd_dev, u8 ep) {
+static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	(void) ep;
 	(void) usbd_dev;
 
@@ -228,7 +228,7 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, u8 ep) {
 /**
  * CDCACM set config
  */
-static void cdcacm_set_config_callback(usbd_device *usbd_dev, u16 wValue) {
+static void cdcacm_set_config_callback(usbd_device *usbd_dev, uint16_t wValue) {
 	(void) wValue;
 	(void) usbd_dev;
 

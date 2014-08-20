@@ -36,8 +36,8 @@ cyrf_on_event _cyrf_send_callback = NULL;
 #define CYRF_CS_LO() gpio_clear(CYRF_DEV_SS_PORT, CYRF_DEV_SS_PIN)
 
 // TODO: Fix a nice delay
-void Delay(u32 x);
-void Delay(u32 x)
+void Delay(uint32_t x);
+void Delay(uint32_t x)
 {
     (void)x;
     __asm ("mov r1, #24;"
@@ -118,7 +118,7 @@ void cyrf_init(void) {
  * On interrupt request
  */
 void CYRF_DEV_IRQ_ISR(void) {
-	u8 tx_irq_status, rx_irq_status;
+	uint8_t tx_irq_status, rx_irq_status;
 
 	// Read the transmit IRQ
 	tx_irq_status = cyrf_read_register(CYRF_TX_IRQ_STATUS);
@@ -158,7 +158,7 @@ void cyrf_register_send_callback(cyrf_on_event callback) {
  * @param[in] address The one byte address number of the register
  * @param[in] data The one byte data that needs to be written to the address
  */
-void cyrf_write_register(const u8 address, const u8 data) {
+void cyrf_write_register(const uint8_t address, const uint8_t data) {
 	CYRF_CS_LO();
 	spi_xfer(CYRF_DEV_SPI, CYRF_DIR | address);
 	spi_xfer(CYRF_DEV_SPI, data);
@@ -171,7 +171,7 @@ void cyrf_write_register(const u8 address, const u8 data) {
  * @param[in] data The data that needs to be written to the address
  * @param[in] length The length in bytes of the data that needs to be written
  */
-void cyrf_write_block(const u8 address, const u8 data[], const int length) {
+void cyrf_write_block(const uint8_t address, const uint8_t data[], const int length) {
 	int i;
 	CYRF_CS_LO();
 	spi_xfer(CYRF_DEV_SPI, CYRF_DIR | address);
@@ -187,8 +187,8 @@ void cyrf_write_block(const u8 address, const u8 data[], const int length) {
  * @param[in] The one byte address of the register
  * @return The one byte data of the register
  */
-u8 cyrf_read_register(const u8 address) {
-	u8 data;
+uint8_t cyrf_read_register(const uint8_t address) {
+	uint8_t data;
 	CYRF_CS_LO();
 	spi_xfer(CYRF_DEV_SPI, address);
 	data = spi_xfer(CYRF_DEV_SPI, 0);
@@ -202,7 +202,7 @@ u8 cyrf_read_register(const u8 address) {
  * @param[out] data The data that was received from the register
  * @param[in] length The length in bytes what needs to be read
  */
-void cyrf_read_block(const u8 address, u8 data[], const int length) {
+void cyrf_read_block(const uint8_t address, uint8_t data[], const int length) {
 	int i;
 	CYRF_CS_LO();
 	spi_xfer(CYRF_DEV_SPI, address);
@@ -217,7 +217,7 @@ void cyrf_read_block(const u8 address, u8 data[], const int length) {
  * Read the MFG id from the register
  * @param[out] The MFG id from the device
  */
-void cyrf_get_mfg_id(u8 *mfg_id) {
+void cyrf_get_mfg_id(uint8_t *mfg_id) {
 	cyrf_write_register(CYRF_MFG_ID, 0xFF);
 	cyrf_read_block(CYRF_MFG_ID, mfg_id, 6);
 	cyrf_write_register(CYRF_MFG_ID, 0x00);
@@ -228,7 +228,7 @@ void cyrf_get_mfg_id(u8 *mfg_id) {
  * Get the RSSI (signal strength) of the last received packet
  * @return The RSSI of the last received packet
  */
-u8 cyrf_get_rssi(void) {
+uint8_t cyrf_get_rssi(void) {
 	return cyrf_read_register(CYRF_RSSI) & 0x0F;
 }
 
@@ -236,7 +236,7 @@ u8 cyrf_get_rssi(void) {
  * Get the RX status
  * @return The RX status register
  */
-u8 cyrf_get_rx_status(void) {
+uint8_t cyrf_get_rx_status(void) {
 	return cyrf_read_register(CYRF_RX_STATUS);
 }
 
@@ -245,7 +245,7 @@ u8 cyrf_get_rx_status(void) {
  * @param[in] config An array of len by 2, consisting the register address and the values
  * @param[in] length The length of the config array
  */
-void cyrf_set_config_len(const u8 config[][2], const u8 length) {
+void cyrf_set_config_len(const uint8_t config[][2], const uint8_t length) {
 	int i;
 	for (i = 0; i < length; i++) {
 		cyrf_write_register(config[i][0], config[i][1]);
@@ -257,7 +257,7 @@ void cyrf_set_config_len(const u8 config[][2], const u8 length) {
  * Set the RF channel
  * @param[in] chan The channel needs to be set
  */
-void cyrf_set_channel(const u8 chan) {
+void cyrf_set_channel(const uint8_t chan) {
 	cyrf_write_register(CYRF_CHANNEL, chan);
 	DEBUG(cyrf6936, "WRITE CHANNEL: 0x%02X", chan);
 }
@@ -266,8 +266,8 @@ void cyrf_set_channel(const u8 chan) {
  * Set the power
  * @param[in] power The power that needs to be set
  */
-void cyrf_set_power(const u8 power) {
-	u8 tx_cfg = cyrf_read_register(CYRF_TX_CFG) & (0xFF - CYRF_PA_4);
+void cyrf_set_power(const uint8_t power) {
+	uint8_t tx_cfg = cyrf_read_register(CYRF_TX_CFG) & (0xFF - CYRF_PA_4);
 	cyrf_write_register(CYRF_TX_CFG, tx_cfg | power);
 	DEBUG(cyrf6936, "WRITE POWER: 0x%02X (0x%02X)", power, tx_cfg);
 }
@@ -277,7 +277,7 @@ void cyrf_set_power(const u8 power) {
  * @param[in] mode The mode that the chip needs to be set to
  * @param[in] force Force the mode switch
  */
-void cyrf_set_mode(const u8 mode, const bool force) {
+void cyrf_set_mode(const uint8_t mode, const bool force) {
 	if (force)
 		cyrf_write_register(CYRF_XACT_CFG, mode | CYRF_FRC_END);
 	else
@@ -290,7 +290,7 @@ void cyrf_set_mode(const u8 mode, const bool force) {
  * Set the CRC seed
  * @param[in] crc The 16-bit CRC seed
  */
-void cyrf_set_crc_seed(const u16 crc) {
+void cyrf_set_crc_seed(const uint16_t crc) {
 	cyrf_write_register(CYRF_CRC_SEED_LSB, crc & 0xff);
 	cyrf_write_register(CYRF_CRC_SEED_MSB, crc >> 8);
 
@@ -301,7 +301,7 @@ void cyrf_set_crc_seed(const u16 crc) {
  * Set the SOP code
  * @param[in] sopcode The 8 bytes SOP code
  */
-void cyrf_set_sop_code(const u8 *sopcode) {
+void cyrf_set_sop_code(const uint8_t *sopcode) {
 	cyrf_write_block(CYRF_SOP_CODE, sopcode, 8);
 
 	DEBUG(cyrf6936, "WRITE SOP_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
@@ -312,7 +312,7 @@ void cyrf_set_sop_code(const u8 *sopcode) {
  * Set the data code
  * @param[in] datacode The 16 bytes data code
  */
-void cyrf_set_data_code(const u8 *datacode) {
+void cyrf_set_data_code(const uint8_t *datacode) {
 	cyrf_write_block(CYRF_DATA_CODE, datacode, 16);
 
 	DEBUG(cyrf6936, "WRITE DATA_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
@@ -324,7 +324,7 @@ void cyrf_set_data_code(const u8 *datacode) {
  * Set the 8 byte data code
  * @param[in] datacode The 16 bytes data code
  */
-void cyrf_set_data_code_small(const u8 *datacode) {
+void cyrf_set_data_code_small(const uint8_t *datacode) {
 	cyrf_write_block(CYRF_DATA_CODE, datacode, 8);
 	DEBUG(cyrf6936, "WRITE DATA_CODE: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
 			datacode[0], datacode[1], datacode[2], datacode[3], datacode[4], datacode[5], datacode[6], datacode[7]);
@@ -334,7 +334,7 @@ void cyrf_set_data_code_small(const u8 *datacode) {
  * Set the preamble
  * @param[in] preamble The 3 bytes preamble
  */
-void cyrf_set_preamble(const u8 *preamble) {
+void cyrf_set_preamble(const uint8_t *preamble) {
 	cyrf_write_block(CYRF_PREAMBLE, preamble, 3);
 	DEBUG(cyrf6936, "WRITE PREAMBLE: 0x%02X 0x%02X 0x%02X",
 			preamble[0], preamble[1], preamble[2]);
@@ -344,7 +344,7 @@ void cyrf_set_preamble(const u8 *preamble) {
  * Set the Framing config
  * @param[in] config The framing config register
  */
-void cyrf_set_framing_cfg(const u8 config) {
+void cyrf_set_framing_cfg(const uint8_t config) {
 	cyrf_write_register(CYRF_FRAMING_CFG, config);
 	DEBUG(cyrf6936, "WRITE FRAMING: 0x%02X", config);
 }
@@ -353,7 +353,7 @@ void cyrf_set_framing_cfg(const u8 config) {
  * Set the RX config
  * @param[in] config The RX config register
  */
-void cyrf_set_rx_cfg(const u8 config) {
+void cyrf_set_rx_cfg(const uint8_t config) {
 	cyrf_write_register(CYRF_RX_CFG, config);
 	DEBUG(cyrf6936, "WRITE RX_CFG: 0x%02X", config);
 }
@@ -362,7 +362,7 @@ void cyrf_set_rx_cfg(const u8 config) {
  * Set the TX config
  * @param[in] config The TX config register
  */
-void cyrf_set_tx_cfg(const u8 config) {
+void cyrf_set_tx_cfg(const uint8_t config) {
 	cyrf_write_register(CYRF_TX_CFG, config);
 	DEBUG(cyrf6936, "WRITE TX_CFG: 0x%02X", config);
 }
@@ -371,7 +371,7 @@ void cyrf_set_tx_cfg(const u8 config) {
  * Set the RX override
  * @param[in] override The RX override register
  */
-void cyrf_set_rx_override(const u8 override) {
+void cyrf_set_rx_override(const uint8_t override) {
 	cyrf_write_register(CYRF_RX_OVERRIDE, override);
 	DEBUG(cyrf6936, "WRITE RX_OVERRIDE: 0x%02X", override);
 }
@@ -380,7 +380,7 @@ void cyrf_set_rx_override(const u8 override) {
  * Set the TX override
  * @param[in] override The TX override register
  */
-void cyrf_set_tx_override(const u8 override) {
+void cyrf_set_tx_override(const uint8_t override) {
 	cyrf_write_register(CYRF_TX_OVERRIDE, override);
 	DEBUG(cyrf6936, "WRITE TX_OVERRIDE: 0x%02X", override);
 }
@@ -390,7 +390,7 @@ void cyrf_set_tx_override(const u8 override) {
  * @param[in] data The data of the packet
  * @param[in] length The length of the data
  */
-void cyrf_send_len(const u8 *data, const u8 length) {
+void cyrf_send_len(const uint8_t *data, const uint8_t length) {
 	cyrf_write_register(CYRF_TX_LENGTH, length);
 	cyrf_write_register(CYRF_TX_CTRL, CYRF_TX_CLR);
 	cyrf_write_block(CYRF_TX_BUFFER, data, length);
@@ -401,7 +401,7 @@ void cyrf_send_len(const u8 *data, const u8 length) {
  * Send a 16 byte data packet
  * @param[in] data The 16 byte data of the packet
  */
-void cyrf_send(const u8 *data) {
+void cyrf_send(const uint8_t *data) {
 	cyrf_send_len(data, 16);
 	DEBUG(cyrf6936, "SEND");
 }
@@ -436,7 +436,7 @@ void cyrf_start_transmit(void) {
  * @param[out] data The data from the RX buffer
  * @param[in] length The length of data that is received from the RX buffer
  */
-void cyrf_recv_len(u8 *data, const u8 length) {
+void cyrf_recv_len(uint8_t *data, const uint8_t length) {
 	cyrf_read_block(CYRF_RX_BUFFER, data, length);
 }
 
@@ -444,6 +444,6 @@ void cyrf_recv_len(u8 *data, const u8 length) {
  * Receive a 16 byte packet from the RX buffer
  * @param[out] data The 16 byte data from the RX buffer
  */
-void cyrf_recv(u8 *data) {
+void cyrf_recv(uint8_t *data) {
 	cyrf_recv_len(data, 16);
 }

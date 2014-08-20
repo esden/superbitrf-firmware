@@ -76,9 +76,9 @@ void timer_init(void) {
  * Set the DSM timer to interrupt
  * @param[in] us The time in microseconds divided by 10
  */
-void timer_dsm_set(u16 us) {
+void timer_dsm_set(uint16_t us) {
 	timer_dsm_value = timer_get_counter(TIMER_DSM);
-	u16 new_t = (us + timer_get_counter(TIMER_DSM)) & 65535;
+	uint16_t new_t = (us + timer_get_counter(TIMER_DSM)) & 65535;
 
 	// Update the timer compare value 1
 	timer_set_oc_value(TIMER_DSM, TIM_OC1, new_t);

@@ -50,7 +50,7 @@ lib:
 	echo "######## ERROR ########"; \
 	exit 1; \
 	fi
-	$(Q)$(MAKE) -C libopencm3
+	$(Q)$(MAKE) -C libopencm3 lib TARGETS="stm32/f1"
 
 flash: main
 	$(Q)$(MAKE) -C src flash

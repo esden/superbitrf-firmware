@@ -26,7 +26,7 @@
 /* External functions */
 typedef void (*timer_on_event) (void);
 void timer_init(void);
-void timer_dsm_set(u16 us);
+void timer_dsm_set(uint16_t us);
 uint16_t timer_dsm_get_time(void);
 void timer_dsm_stop(void);
 void timer_dsm_register_callback(timer_on_event callback);

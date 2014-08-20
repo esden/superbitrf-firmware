@@ -353,8 +353,8 @@ void dsm_transmitter_set_next_channel(void) {
  * Create DSM Transmitter Bind packet
  */
 static void dsm_transmitter_create_bind_packet(void) {
-	u8 i;
-	u16 sum = 384 - 0x10;
+	uint8_t i;
+	uint16_t sum = 384 - 0x10;
 
 	dsm_transmitter.tx_packet[0] = ~dsm_transmitter.mfg_id[0];
 	dsm_transmitter.tx_packet[1] = ~dsm_transmitter.mfg_id[1];
