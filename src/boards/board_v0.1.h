@@ -49,13 +49,13 @@
 #define BTN_BIND_NVIC				NVIC_EXTI15_10_IRQ				/**< The Bind button NVIC for the interrupt */
 
 /* Define the USB connection */
-#define USB_DETACH_PORT				GPIOA							/**< The USB Detach GPIO base address */
+#define USB_DETACH_PORT				GPIOA							/**< The USB Detach GPIO port */
 #define USB_DETACH_PIN				GPIO8							/**< The USB Detach GPIO pin */
 #define USB_DETACH_CLK				RCC_APB2ENR_IOPAEN				/**< The USB Detach GPIO clock */
-#define USB_VBUS_PORT					GPIOA
-#define USB_VBUS_PIN					GPIO10
-#define USB_VBUS_CLK					RCC_APB2ENR_IOPAEN				/**< The USB Detach GPIO clock */
-#define USB_VBUS_IRQ					NVIC_EXTI15_10_IRQ
+#define USB_VBUS_PORT				GPIOA							/**< The USB VBus GPIO port */
+#define USB_VBUS_PIN				GPIO10							/**< The USB VBus GPIO pin */
+#define USB_VBUS_CLK				RCC_APB2ENR_IOPAEN				/**< The USB VBus GPIO clock */
+#define USB_VBUS_IRQ				NVIC_EXTI15_10_IRQ				/**< The USB VBus NVIC for for the interrupt */
 
 /* Define the CYRF6936 chip */
 #define CYRF_DEV_SPI				SPI1							/**< The SPI connection number */
