@@ -57,6 +57,7 @@ flash: main
 
 clean:
 	$(Q)$(MAKE) -C libopencm3 clean
+	@printf "  CLEAN   src\n"
 	$(Q)$(MAKE) -C src clean
 	$(Q)for i in $(TEST_TARGETS); do \
 		if [ -d $$i ]; then \
