@@ -1,0 +1,8 @@
+------------------------------------------------------------------------------
+README
+------------------------------------------------------------------------------
+
+This is a demo and test program for the virtual serial port module of
+superbitrf. It creates several virtual serial interfaces as well as a DFU stub
+for firmware upgrade purposes. Each serial interface can be connected to and
+interacted with.
