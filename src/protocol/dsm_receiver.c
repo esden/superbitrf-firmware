@@ -60,7 +60,6 @@ void dsm_receiver_init(void) {
 	cyrf_register_recv_callback(dsm_receiver_receive_cb);
 	cyrf_register_send_callback(NULL);
 	button_bind_register_callback(dsm_receiver_start_bind);
-	cdcacm_register_receive_callback(NULL);
 
 	DEBUG(protocol, "DSM Receiver initialized 0x%02X 0x%02X 0x%02X 0x%02X", mfg_id[0], mfg_id[1], mfg_id[2], mfg_id[3]);
 }
