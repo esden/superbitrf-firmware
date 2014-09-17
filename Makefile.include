@@ -87,6 +87,8 @@ else
 LDFLAGS += -Wl,--print-gc-sections
 endif
 
+PROJECT_TLD ?= ..
+
 .SUFFIXES: .elf .bin .hex .srec .list .images
 .SECONDEXPANSION:
 .SECONDARY:
@@ -136,7 +138,7 @@ ifeq ($(BMP_PORT),)
 %.flash: %.bin
 	@printf "  FLASH   $<\n"
 	@# IMPORTANT: Don't use "resume", only "reset" will work correctly!
-	$(Q)../scripts/stm32_mem.py $(*).bin
+	$(Q)$(PROJECT_TLD)/scripts/stm32_mem.py $(*).bin
 else
 %.flash: %.elf
 	@echo "  GDB   $(*).elf (flash)"
