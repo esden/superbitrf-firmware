@@ -27,15 +27,15 @@
 #include <libopencm3/usb/dfu.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/usb.h>
 
 #include "cdcacm.h"
 #include "usb_struct_templates.h"
+#include "ring.h"
 
-// The recieve callback
-cdcacm_receive_callback _cdcacm_receive_callback = NULL;
 
 // The usbd device
-usbd_device *cdacm_usbd_dev = NULL;
+usbd_device *cdcacm_usbd_dev = NULL;
 
 // The usbd control buffer
 uint8_t cdacm_usbd_control_buffer[256];
@@ -43,6 +43,23 @@ uint8_t cdacm_usbd_control_buffer[256];
 static int configured;
 static int cdcacm_data_dtr = 1;
 static int cdcacm_control_dtr = 1;
+
+/* CDCACM status struct. It stores error counts on the interfaces. */
+struct cdcacm_status {
+	uint32_t data_rx_ring_full;
+	uint32_t control_rx_ring_full;
+} cdcacm_status;
+
+/* Input and output ring buffers for the two virtual serial ports. */
+#define CDCACM_IO_BUFFER_SIZE 257
+uint8_t cdcacm_data_tx_buffer[CDCACM_IO_BUFFER_SIZE];
+uint8_t cdcacm_data_rx_buffer[CDCACM_IO_BUFFER_SIZE];
+struct ring cdcacm_data_tx;
+struct ring cdcacm_data_rx;
+uint8_t cdcacm_control_tx_buffer[CDCACM_IO_BUFFER_SIZE];
+uint8_t cdcacm_control_rx_buffer[CDCACM_IO_BUFFER_SIZE];
+struct ring cdcacm_control_tx;
+struct ring cdcacm_control_rx;
 
 /**
  * Misc device descriptor with most of the settings preset. Only adjustment we
@@ -156,7 +173,7 @@ static const struct usb_config_descriptor config = {
 static const char *usb_strings[] = {
 	"1 BIT SQUARED",
 	"Superbit USBRF",
-	(const char *)0x8001FF0,
+	(const char *)0x8001FF0, /* The serial number is stored in the bootloader. */
 	"SuperbitRF data port",
 	"SuperbitRF control interface",
 	"SuperbitRF DFU",
@@ -235,14 +252,15 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	(void) usbd_dev;
 	usbd_ep_nak_set(usbd_dev, 0x01, 1);
 
-	char buf[64];
+	char buf[65];
 	int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, 64);
 
 	if (len) {
-		buf[len] = 0;
+		int rx_len = ring_write(&cdcacm_data_rx, (uint8_t *)buf, len+1);
 
-		if (_cdcacm_receive_callback != NULL) {
-			_cdcacm_receive_callback(buf, len);
+		/* Record rx buffer overflow event. */
+		if (rx_len < 0) {
+			cdcacm_status.data_rx_ring_full++;
 		}
 	}
 
@@ -258,13 +276,16 @@ static void cdcacm_control_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	(void) usbd_dev;
 	usbd_ep_nak_set(usbd_dev, 0x03, 1);
 
-	char buf[64];
+	char buf[65];
 	int len = usbd_ep_read_packet(usbd_dev, 0x03, buf, 64);
 
 	if (len) {
-		buf[len] = 0;
+		int rx_len = ring_write(&cdcacm_control_rx, (uint8_t *)buf, len);
 
-		// TODO FIX CONSOLE
+		/* Record rx buffer overflow event. */
+		if (rx_len <= 0) {
+			cdcacm_status.control_rx_ring_full++;
+		}
 	}
 
 	usbd_ep_nak_set(usbd_dev, 0x03, 0);
@@ -357,10 +378,22 @@ static void cdcacm_init_vbus(void) {
  * Initialize the CDCACM
  */
 void cdcacm_init(void) {
-	cdacm_usbd_dev = usbd_init(&stm32f103_usb_driver, &dev, &config, usb_strings, 6,
+
+	/* Initialize IO ring buffers. */
+	ring_init(&cdcacm_data_rx, cdcacm_data_rx_buffer, CDCACM_IO_BUFFER_SIZE);
+	ring_init(&cdcacm_data_tx, cdcacm_data_tx_buffer, CDCACM_IO_BUFFER_SIZE);
+	ring_init(&cdcacm_control_rx, cdcacm_control_rx_buffer, CDCACM_IO_BUFFER_SIZE);
+	ring_init(&cdcacm_control_tx, cdcacm_control_tx_buffer, CDCACM_IO_BUFFER_SIZE);
+
+	/* Reset cdcacm_status struct entries. */
+	cdcacm_status.data_rx_ring_full = 0;
+	cdcacm_status.control_rx_ring_full = 0;
+
+	/* Initialize the USB stack. */
+	cdcacm_usbd_dev = usbd_init(&stm32f103_usb_driver, &dev, &config, usb_strings, 6,
 			    cdacm_usbd_control_buffer, sizeof(cdacm_usbd_control_buffer));
 
-	usbd_register_set_config_callback(cdacm_usbd_dev, cdcacm_set_config_callback);
+	usbd_register_set_config_callback(cdcacm_usbd_dev, cdcacm_set_config_callback);
 
 	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, (2 << 4));
 	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ);
@@ -372,21 +405,16 @@ void cdcacm_init(void) {
  * Run the CDCACM ISR
  */
 void usb_lp_can_rx0_isr(void) {
-	usbd_poll(cdacm_usbd_dev);
-}
-
-/**
- * Register CDCACM receive callback
- * @param[in] callback The function for the receive callback
- */
-void cdcacm_register_receive_callback(cdcacm_receive_callback callback) {
-	_cdcacm_receive_callback = callback;
+	usbd_poll(cdcacm_usbd_dev);
 }
 
 /**
  * Send data trough the CDCACM
  * @param[in] data The data that needs to be send
  * @param[in] size The size of the data in bytes
+ * Note: We should not manually send data over USB. We should use a periodic
+ * means of automatically sending the packets whenever we have time to do so.
+ * Use the cdcacm_process function in main loop instead.
  */
 bool cdcacm_send(const char *data, const int size) {
 	int i = 0;
@@ -396,11 +424,53 @@ bool cdcacm_send(const char *data, const int size) {
 		return true;
 
 	while ((size - (i * 64)) > 64) {
-		while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);
+		while (usbd_ep_write_packet(cdcacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);
 		i++;
 	}
 
-	while (usbd_ep_write_packet(cdacm_usbd_dev, 0x82, (data + (i * 64)), size - (i * 64)) == 0);
+	while (usbd_ep_write_packet(cdcacm_usbd_dev, 0x82, (data + (i * 64)), size - (i * 64)) == 0);
 
 	return true;
+}
+
+/**
+ * Process the content of the output ring buffers and send the data out whenever
+ * possible.
+ */
+void cdcacm_process(void)
+{
+	uint8_t buf[64];
+	int tx_len;
+
+	/* Check if the EP is active, meaning it is busy and we can't send data at
+	 * the moment.
+	 * This implementation is non portable and should be implemented in the
+	 * libopencm3 usb stack.
+	 */
+	if ((*USB_EP_REG(0x81 & 0x7F) & USB_EP_TX_STAT) != USB_EP_TX_STAT_VALID) {
+		/* Handle data channel. */
+		tx_len = ring_read(&cdcacm_data_tx, buf, 64);
+
+		/* Get rid of the not enough data information. */
+		if (tx_len < 0) tx_len = -tx_len;
+
+		/* Send data out if we have something to send. DUH! */
+		if (tx_len > 0) {
+			usbd_ep_write_packet(cdcacm_usbd_dev, 0x81, buf, tx_len);
+		}
+	}
+
+	if ((*USB_EP_REG(0x83 & 0x7F) & USB_EP_TX_STAT) != USB_EP_TX_STAT_VALID) {
+		/* Handle data channel. */
+		tx_len = ring_read(&cdcacm_control_tx, buf, 64);
+
+		/* Get rid of the not enough data information. */
+		if (tx_len < 0) tx_len = -tx_len;
+
+		/* Send data out if we have something to send. DUH! */
+		if (tx_len > 0) {
+			usbd_ep_write_packet(cdcacm_usbd_dev, 0x83, buf, tx_len);
+		}
+	}
+
 }

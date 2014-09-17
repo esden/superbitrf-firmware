@@ -22,7 +22,26 @@
 /* Load the modules */
 #include "modules/led.h"
 #include "modules/cdcacm.h"
+#include "modules/ring.h"
 
+void our_relay_process(void);
+
+void our_relay_process(void)
+{
+	uint8_t buffer;
+
+	/* Copy over byte by byte from the incoming buffer to the outgoing buffer
+	 * until either the incoming buffer is empty or the outgoing buffer is full.
+	 */
+	while ((!RING_EMPTY(&cdcacm_data_rx)) && (!RING_FULL(&cdcacm_control_tx))) {
+		ring_read_ch(&cdcacm_data_rx, &buffer);
+		ring_write_ch(&cdcacm_control_tx, buffer);
+	}
+	while ((!RING_EMPTY(&cdcacm_control_rx)) && (!RING_FULL(&cdcacm_data_tx))) {
+		ring_read_ch(&cdcacm_control_rx, &buffer);
+		ring_write_ch(&cdcacm_data_tx, buffer);
+	}
+}
 
 int main(void) {
 	// Setup the clock
@@ -33,7 +52,10 @@ int main(void) {
 	cdcacm_init();
 
 	/* The main loop */
-	while (1);
+	while (1) {
+		cdcacm_process();
+		our_relay_process();
+	}
 
 	return 0;
 }
