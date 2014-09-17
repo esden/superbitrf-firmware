@@ -26,7 +26,7 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
-all: lib main
+all: lib main tests
 
 $(TEST_TARGETS): lib
 	@printf "  BUILD   $@\n";
