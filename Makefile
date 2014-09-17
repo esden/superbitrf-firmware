@@ -23,7 +23,9 @@ TEST_TARGETS := test/blink test/usb_cdcacm test/transfer
 ifneq ($(V),1)
 Q := @
 # Do not print "Entering directory ...".
-MAKEFLAGS += --no-print-directory
+# We need to print the directory if we want tools like sublime text to know
+# where to jump if you encounter a build error.
+#MAKEFLAGS += --no-print-directory
 endif
 
 all: lib main tests
