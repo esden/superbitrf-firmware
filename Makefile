@@ -17,13 +17,13 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-TEST_TARGETS := test/blink test/usb_cdcacm test/transfer
+TEST_TARGETS := test/blink test/usb_cdcacm test/transfer test/multi_usb_cdcacm
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
 Q := @
 # Do not print "Entering directory ...".
-# We need to print the directory if we want tools like sublime text to know
+# esden: We need to print the directory if we want tools like sublime text to know
 # where to jump if you encounter a build error.
 #MAKEFLAGS += --no-print-directory
 endif
