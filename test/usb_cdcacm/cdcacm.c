@@ -18,8 +18,8 @@
  */
 
 #include <stdlib.h>
-#include <libopencm3/stm32/f1/rcc.h>
-#include <libopencm3/stm32/f1/gpio.h>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
 
@@ -185,10 +185,10 @@ static const char *usb_strings[] = {
 };
 
 /* Buffer to be used for control requests. */
-u8 usbd_control_buffer[128];
+uint8_t usbd_control_buffer[128];
 
-static int cdcacm_control_request(usbd_device *usbd_dev, struct usb_setup_data *req, u8 **buf,
-		u16 *len, void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
+static int cdcacm_control_request(usbd_device *usbd_dev, struct usb_setup_data *req, uint8_t **buf,
+		uint16_t *len, void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
 {
 	(void)complete;
 	(void)buf;
@@ -223,7 +223,7 @@ static int cdcacm_control_request(usbd_device *usbd_dev, struct usb_setup_data *
 	return 0;
 }
 
-static void cdcacm_data_rx_cb(usbd_device *usbd_dev, u8 ep)
+static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep)
 {
 	(void)ep;
 	(void)usbd_dev;
@@ -237,7 +237,7 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, u8 ep)
 	}
 }
 
-static void cdcacm_set_config(usbd_device *usbd_dev, u16 wValue)
+static void cdcacm_set_config(usbd_device *usbd_dev, uint16_t wValue)
 {
 	(void)wValue;
 	(void)usbd_dev;

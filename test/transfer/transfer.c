@@ -29,7 +29,7 @@
 #include "../../src/modules/cyrf6936.h"
 
 /* The packet that it sended */
-static const u8 packet[16] = {
+static const uint8_t packet[16] = {
 			0x00,
 			0x01,
 			0x02,
@@ -63,11 +63,11 @@ void on_timer(void) {
 }
 
 /* When the cyrf chip receives a packet */
-void on_receive(bool error) {
+void on_receive(bool error __attribute__((unused))) {
 	int i, count;
-	u8 packet_buf[16];
+	uint8_t packet_buf[16];
 	char cdc_msg[512];
-	u8 rx_status;
+	uint8_t rx_status;
 
 	LED_TOGGLE(1);
 
@@ -101,16 +101,16 @@ void on_receive(bool error) {
 }
 
 /* When the cyrf chip successfully sended the packet */
-void on_send(bool error) {
-	LED_TOGGLE(POWER);
+void on_send(bool error __attribute__((unused))) {
+	LED_TOGGLE(3);
 }
 
 int main(void)
 {
-	u8 sop_code[] = {
+	uint8_t sop_code[] = {
 		0x03, 0xE7, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8
 	};
-	u8 data_code[] = {
+	uint8_t data_code[] = {
 		0x88, 0x17, 0x13, 0x3B, 0x2D, 0xBF, 0x06, 0xD6
 	};
 	rcc_clock_setup_in_hse_12mhz_out_72mhz();
@@ -154,7 +154,6 @@ int main(void)
 
 	/* Main loop */
 	while (1) {
-		cdcacm_run();
 	}
 
 	return 0;
