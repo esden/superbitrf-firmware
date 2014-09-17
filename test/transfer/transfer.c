@@ -22,6 +22,8 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 
+#include "../../src/board.h"
+
 /* Load the modules */
 #include "../../src/modules/led.h"
 #include "../../src/modules/timer.h"
