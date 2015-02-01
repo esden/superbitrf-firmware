@@ -16,10 +16,17 @@
 ## You should have received a copy of the GNU Lesser General Public License
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
-
 BINARY = blink
 
+PROJECT_TLD = ../..
+
+OBJS += ../../src/modules/led.o ../../src/modules/timer.o
+
 LDSCRIPT = ../../stm32f103cbt6.ld
+
+CFLAGS += -DBOARD_V1_0 -I../../src
+
+LDFLAGS += -Wl,-Ttext=0x8002000
 
 include ../../Makefile.include
 

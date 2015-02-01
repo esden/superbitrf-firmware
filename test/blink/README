@@ -2,7 +2,7 @@
 README
 ------------------------------------------------------------------------------
 
-This is small LED blinking example program using libopencm3.
-
-It will alternating blink tx/rx and err leds on the usbrf module.
+This is small LED blinking example program using the led and timer module.
+This will blink all three leds at a frequency of 1 second. This means it is
+0.5 seconds off and 0.5 seconds on, so in total 1 second.
 

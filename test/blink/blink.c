@@ -17,46 +17,31 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdint.h>
 #include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
+#include "modules/led.h"
+#include "modules/timer.h"
 
-/* Set STM32 to 72 MHz. */
-static void clock_setup(void)
-{
-	//rcc_clock_setup_in_hse_12mhz_out_72mhz();
-
-	/* Enable GPIOC clock. */
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPBEN);
-}
-
-static void gpio_setup(void)
-{
-	/* Set GPIO12 (in GPIO port C) to 'output push-pull'. */
-	gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, GPIO2);
-	gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, GPIO10);
-	gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, GPIO11);
+void timer1_cb(void) {
+ 	LED_TOGGLE(1);	/* LED on/off */
+	LED_TOGGLE(2);	/* LED on/off */
+	LED_TOGGLE(3);	/* LED on/off */
+	timer1_set(50000); /* 0.5 second timer */
 }
 
 int main(void)
 {
-	int i;
+	rcc_clock_setup_in_hse_12mhz_out_72mhz();
 
-	clock_setup();
-	gpio_setup();
-	gpio_set(GPIOB, GPIO10);
+	/* Initialize the modules */
+	led_init();
+	timer_init();
 
-	/* Blink the LED (PC12) on the board. */
-	while (1) {
-		gpio_toggle(GPIOB, GPIO2);	/* LED on/off */
-		gpio_toggle(GPIOB, GPIO10);	/* LED on/off */
-		gpio_toggle(GPIOB, GPIO11);	/* LED on/off */
-		for (i = 0; i < 800000; i++)	/* Wait a bit. */
-			__asm__("nop");
-	}
+	/* Start the timer and set the callback */
+	timer1_register_callback(timer1_cb);
+	timer1_set(50000); /* 0.5 second timer */
+
+	/* Blinking is done in interrupt */
+	while (1);
 
 	return 0;
 }
