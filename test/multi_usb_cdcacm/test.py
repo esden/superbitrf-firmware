@@ -14,7 +14,7 @@ bytes = 150
 print('Testing started....')
 start_time = time.time()
 for i in range(0,test_amount):
-  time.sleep(0.001)
+  time.sleep(0.0001)
   console_write = os.urandom(bytes)
   data_write = os.urandom(bytes)
   data.write(data_write)
@@ -25,13 +25,17 @@ for i in range(0,test_amount):
   if data_read != console_write:
     err_condat += 1
     print('\tConsole -> Data error')
-    print('\t\tWritten:', console_write)
-    print('\t\tRead:', data_read)
+    print('\t\tWritten Console:', console_write)
+    print('\t\tRead Data:', data_read)
+    print('\t\tWritten Data:', data_write)
+    print('\t\tRead Console:', console_read)
   if console_read != data_write:
     err_datcon += 1
     print('\tData -> Console error')
-    print('\t\tWritten:', data_write)
-    print('\t\tRead:', console_read)
+    print('\t\tWritten Data:', data_write)
+    print('\t\tRead Console:', console_read)
+    print('\t\tWritten Console:', console_write)
+    print('\t\tRead Data:', data_read)
 
 
 end_time = time.time()

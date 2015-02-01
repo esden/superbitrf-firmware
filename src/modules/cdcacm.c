@@ -51,7 +51,7 @@ struct cdcacm_status {
 } cdcacm_status;
 
 /* Input and output ring buffers for the two virtual serial ports. */
-#define CDCACM_IO_BUFFER_SIZE 257
+#define CDCACM_IO_BUFFER_SIZE 256
 uint8_t cdcacm_data_tx_buffer[CDCACM_IO_BUFFER_SIZE];
 uint8_t cdcacm_data_rx_buffer[CDCACM_IO_BUFFER_SIZE];
 struct ring cdcacm_data_tx;
@@ -204,9 +204,6 @@ static int cdcacm_console_request(usbd_device *usbd_dev,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
 		void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req)) {
 	(void)usbd_dev;
-	(void)complete;
-	(void)buf;
-	(void)len;
 
 	switch(req->bRequest) {
 	case USB_CDC_REQ_SET_CONTROL_LINE_STATE:
@@ -248,23 +245,21 @@ static int cdcacm_console_request(usbd_device *usbd_dev,
  * CDCACM data recieve callback
  */
 static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
-	(void) ep;
-	(void) usbd_dev;
-	usbd_ep_nak_set(usbd_dev, 0x01, 1);
+	usbd_ep_nak_set(usbd_dev, ep, 1);
 
 	char buf[65];
-	int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, 64);
+	int len = usbd_ep_read_packet(usbd_dev, ep, buf, 64);
 
 	if (len) {
 		int rx_len = ring_write(&cdcacm_data_rx, (uint8_t *)buf, len);
 
 		/* Record rx buffer overflow event. */
-		if (rx_len < 0) {
+		if (rx_len <= 0) {
 			cdcacm_status.data_rx_ring_full++;
 		}
 	}
 
-	usbd_ep_nak_set(usbd_dev, 0x01, 0);
+	usbd_ep_nak_set(usbd_dev, ep, 0);
 }
 
 /**
@@ -272,12 +267,10 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
  */
 
 static void cdcacm_console_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
-	(void) ep;
-	(void) usbd_dev;
-	usbd_ep_nak_set(usbd_dev, 0x03, 1);
+	usbd_ep_nak_set(usbd_dev, ep, 1);
 
 	char buf[65];
-	int len = usbd_ep_read_packet(usbd_dev, 0x03, buf, 64);
+	int len = usbd_ep_read_packet(usbd_dev, ep, buf, 64);
 
 	if (len) {
 		int rx_len = ring_write(&cdcacm_console_rx, (uint8_t *)buf, len);
@@ -288,7 +281,7 @@ static void cdcacm_console_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 		}
 	}
 
-	usbd_ep_nak_set(usbd_dev, 0x03, 0);
+	usbd_ep_nak_set(usbd_dev, ep, 0);
 }
 
 /**
