@@ -126,6 +126,8 @@ flash: $(BINARY).flash
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
+	$(Q)find $(PROJECT_TLD) -name *.o -delete
+	$(Q)find $(PROJECT_TLD) -name *.d -delete
 	$(Q)find . -name *.o -delete
 	$(Q)find . -name *.d -delete
 	$(Q)rm -f *.elf

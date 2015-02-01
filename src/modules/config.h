@@ -22,6 +22,10 @@
 
 #include <libopencm3/cm3/common.h>
 
+#ifndef DEBUG
+#define DEBUG(a ,...)
+#endif
+
 #define CONFIG_ITEMS 50
 struct ConfigItem {
 	char *name;

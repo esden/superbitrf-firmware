@@ -28,6 +28,7 @@
 #include "../../src/modules/led.h"
 #include "../../src/modules/timer.h"
 #include "../../src/modules/cdcacm.h"
+#include "../../src/modules/ring.h"
 #include "../../src/modules/cyrf6936.h"
 
 /* The packet that it sended */
@@ -61,7 +62,7 @@ void on_timer(void) {
 	LED_TOGGLE(2);
 
 	// Set timeout for next send
-	timer_dsm_set(10000);
+	timer1_set(10000);
 }
 
 /* When the cyrf chip receives a packet */
@@ -83,11 +84,12 @@ void on_receive(bool error __attribute__((unused))) {
 	// Copy packet to the packet buffer
 	cyrf_recv(packet_buf);
 
-	sprintf(cdc_msg, "Packet received: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\r\n",
+	sprintf(cdc_msg, "\r\nPacket received: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
 				packet_buf[0], packet_buf[1], packet_buf[2], packet_buf[3], packet_buf[4], packet_buf[5],
 				packet_buf[6], packet_buf[7], packet_buf[8], packet_buf[9], packet_buf[10], packet_buf[11],
 				packet_buf[12], packet_buf[13], packet_buf[14], packet_buf[15]);
-	cdcacm_send(cdc_msg, strlen(cdc_msg));
+	ring_write(&cdcacm_data_tx, packet_buf, 15);
+	ring_write(&cdcacm_console_tx, (uint8_t*)cdc_msg, strlen(cdc_msg));
 
 	// Compare with packet
 	count = 0;
@@ -124,7 +126,7 @@ int main(void)
 	cyrf_init();
 
 	// Register callbacks
-	timer_dsm_register_callback(on_timer);
+	timer1_register_callback(on_timer);
 	cyrf_register_recv_callback(on_receive);
 	cyrf_register_send_callback(on_send);
 
@@ -151,7 +153,7 @@ int main(void)
 #ifdef RECEIVER
 	cyrf_start_recv();
 #else
-	timer_dsm_set(10);
+	timer1_set(10);
 #endif
 
 	/* Main loop */
