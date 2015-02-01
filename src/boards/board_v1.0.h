@@ -79,9 +79,9 @@
 #define CYRF_DEV_IRQ_NVIC			NVIC_EXTI3_IRQ					/**< The IRQ NVIC for the interrupt */
 
 /* Define the DSM timer */
-#define TIMER_DSM					TIM2							/**< The DSM timer */
-#define TIMER_DSM_NVIC				NVIC_TIM2_IRQ					/**< The DSM timer NVIC */
-#define TIMER_DSM_IRQ				tim2_isr						/**< The DSM timer function interrupt */
+#define TIMER1					  TIM2							/**< The DSM timer */
+#define TIMER1_NVIC				NVIC_TIM2_IRQ			/**< The DSM timer NVIC */
+#define TIMER1_IRQ				tim2_isr					/**< The DSM timer function interrupt */
 
 
 #endif /* BOARD_V1_0_H_ */

@@ -25,14 +25,13 @@
 
 extern struct ring cdcacm_data_tx;
 extern struct ring cdcacm_data_rx;
-extern struct ring cdcacm_control_tx;
-extern struct ring cdcacm_control_rx;
+extern struct ring cdcacm_console_tx;
+extern struct ring cdcacm_console_rx;
 
 typedef void (*cdcacm_receive_callback) (char *data, int size);
 
 void cdcacm_init(void);
 void cdcacm_register_receive_callback(cdcacm_receive_callback callback);
-bool cdcacm_send(const char *data, const int size);
 void cdcacm_process(void);
 
 #endif /* MODULES_CDCACM_H_ */

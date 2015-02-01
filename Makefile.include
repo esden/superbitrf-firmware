@@ -144,7 +144,7 @@ else
 	@echo "  GDB   $(*).elf (flash)"
 	$(Q)$(GDB) --batch \
 		   -ex 'target extended-remote $(BMP_PORT)' \
-		   -x ../bmp_swd_flash.scr \
+		   -x $(PROJECT_TLD)/scripts/bmp_swd_flash.scr \
 		   $(*).elf
 endif
 

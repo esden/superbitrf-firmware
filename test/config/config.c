@@ -19,42 +19,27 @@
 
 #include <libopencm3/stm32/rcc.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
 /* Load the modules */
-#include "modules/led.h"
 #include "modules/cdcacm.h"
-#include "modules/ring.h"
-
-void our_relay_process(void);
-
-void our_relay_process(void)
-{
-	uint8_t buffer;
-
-	/* Copy over byte by byte from the incoming buffer to the outgoing buffer
-	 * until either the incoming buffer is empty or the outgoing buffer is full.
-	 */
-	while ((!RING_EMPTY(&cdcacm_data_rx)) && (!RING_FULL(&cdcacm_console_tx))) {
-		ring_read_ch(&cdcacm_data_rx, &buffer);
-		ring_write_ch(&cdcacm_console_tx, buffer);
-	}
-	while ((!RING_EMPTY(&cdcacm_console_rx)) && (!RING_FULL(&cdcacm_data_tx))) {
-		ring_read_ch(&cdcacm_console_rx, &buffer);
-		ring_write_ch(&cdcacm_data_tx, buffer);
-	}
-}
+#include "modules/console.h"
+#include "modules/config.h"
 
 int main(void) {
 	// Setup the clock
 	rcc_clock_setup_in_hse_12mhz_out_72mhz();
 
 	// Initialize the modules
-	led_init();
 	cdcacm_init();
+	console_init();
+	config_init();
 
 	/* The main loop */
 	while (1) {
 		cdcacm_process();
-		our_relay_process();
+		console_run();
 	}
 
 	return 0;

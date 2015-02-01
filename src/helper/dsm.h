@@ -24,12 +24,12 @@
 #define DSM_BIND_RECV_TIME			1000		/**< Time before timeout when receiving bind packets */
 #define DSM_SYNC_RECV_TIME			2000		/**< Time before timeout when trying to sync */
 #define DSM_SYNC_FRECV_TIME			10000		/**< Time before timeout when trying to sync first packet of DSMX (bigger then bind sending) */
-#define DSM_RECV_TIME				2200		/**< Time before timeout when trying to receive */
+#define DSM_RECV_TIME				    2200		/**< Time before timeout when trying to receive */
 #define DSM_RECV_TIME_SHORT			800			/**< Time before timeout when trying to receive between two channels */
 #define DSM_RECV_TIME_DATA			1000		/**< Time before timeout when waiting for data packet (MITM) */
 
 #define DSM_BIND_SEND_TIME			1000		/**< Time between sending bind packets */
-#define DSM_SEND_TIME				2200		/**< Time between sending both Channel A and Channel B */
+#define DSM_SEND_TIME				    2200		/**< Time between sending both Channel A and Channel B */
 #define DSM_CHA_CHB_SEND_TIME		400			/**< Time between Channel A and Channel B send */
 
 /* The maximum channekl number for DSM2 and DSMX */
@@ -62,30 +62,12 @@ extern const uint8_t cyrf_config[][2];			/**< The CYRF DSM configuration during 
 extern const uint8_t cyrf_bind_config[][2];		/**< The CYRF DSM binding configuration */
 extern const uint8_t cyrf_transfer_config[][2];	/**< The CYRF DSM transfer configuration */
 
-
-//struct Dsm {
-//	enum dsm_protocol protocol;		/**< The type of DSM protocol */
-//	enum dsm_resolution resolution;	/**< Is true when the transmitters uses 11 bit resolution */
-//	uint8_t cyrf_mfg_id[6];				/**< The device or the received MFG id */
-//	uint8_t cur_channel;					/**< The current channel number */
-//	uint8_t channels[23];				/**< The channels that the protocol uses */
-//	uint8_t ch_idx;						/**< The current channel index */
-//	uint16_t crc_seed;					/**< The current CRC seed */
-//	uint8_t sop_col;						/**< The calculated SOP column */
-//	uint8_t data_col;					/**< The calculated data column */
-//	uint8_t transmit_packet[16];			/**< The packet that gets transmitted */
-//	uint8_t transmit_packet_length;		/**< THe length of the transmit packet */
-//	uint8_t receive_packet[16];			/**< The packet that gets received */
-//	uint8_t packet_loss_bit;				/**< This bit is used to detect packet loss */
-//	bool packet_loss;				/**< This is set when a packet loss is detected*/
-//};
-//extern struct Dsm dsm;
-
 /* External functions */
 uint16_t dsm_config_size(void);
 uint16_t dsm_bind_config_size(void);
 uint16_t dsm_transfer_config_size(void);
 void dsm_generate_channels_dsmx(uint8_t mfg_id[], uint8_t *channels);
 void dsm_set_channel(uint8_t channel, bool is_dsm2, uint8_t sop_col, uint8_t data_col, uint16_t crc_seed);
+void dsm_radio_to_channels(uint8_t* data, uint8_t nb_channels, bool is_11bit, int16_t* channels)
 
 #endif /* PROTOCOL_DSM_H_ */

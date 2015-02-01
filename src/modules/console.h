@@ -1,7 +1,7 @@
 /*
  * This file is part of the superbitrf project.
  *
- * Copyright (C) 2013 Freek van Tienen <freek.v.tienen@gmail.com>
+ * Copyright (C) 2015 Freek van Tienen <freek.v.tienen@gmail.com>
  *
  * This library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -17,22 +17,14 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "led.h"
+#ifndef MODULES_CONSOLE_H_
+#define MODULES_CONSOLE_H_
 
-/**
- * Initialize the leds
- */
-void led_init(void) {
-#ifdef USE_LED_1
-	LED_INIT(1);
-	LED_OFF(1);
-#endif
-#ifdef USE_LED_2
-	LED_INIT(2);
-	LED_OFF(2);
-#endif
-#ifdef USE_LED_3
-	LED_INIT(3);
-	LED_OFF(3);
-#endif
-}
+/* External functions */
+void console_init(void);
+void console_run(void);
+void console_cmd_add(char *name, char *params, void (*cmdFunc)(char *cmdLine));
+void console_cmd_rm(char *name);
+void console_print(const char *format, ...);
+
+#endif /* MODULES_CONSOLE_H_ */

@@ -17,9 +17,8 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../modules/config.h"
-#include "../modules/cyrf6936.h"
 #include "dsm.h"
+#include "../modules/cyrf6936.h"
 
 /* The PN codes */
 const uint8_t pn_codes[5][9][8] = {
@@ -211,4 +210,26 @@ void dsm_set_channel(uint8_t channel, bool is_dsm2, uint8_t sop_col, uint8_t dat
 
 	DEBUG(dsm, "Set channel: 0x%02X (is_dsm2: 0x%02X, pn_row: 0x%02X, data_col: 0x%02X, sop_col: 0x%02X, crc_seed: 0x%04X)",
 					channel, is_dsm2, pn_row, data_col, sop_col, crc_seed);
+}
+
+/**
+ * Convert normal radio transmitter to channel outputs
+ * @param[in] data The data from the RC packet
+ * @param[in] nb_channels The amount of channels the transmitter has
+ * @param[in] is_11bit Wether the transmitter is 11 bit or 10 bit encoded
+ * @param[out] channels The RC channels
+ */
+void dsm_radio_to_channels(uint8_t* data, uint8_t nb_channels, bool is_11bit, int16_t* channels) {
+  int i;
+  uint8_t bit_shift = (is_11bit)? 11:10;
+  int16_t value_max = (is_11bit)? 0x07FF: 0x03FF;
+
+  for (i=0; i<7; i++) {
+    const int16_t tmp = ((data[2*i]<<8) + data[2*i+1]) & 0x7FFF;
+    const uint8_t chan = (tmp >> bit_shift) & 0x0F;
+    const int16_t val  = (tmp&value_max);
+
+    if(chan < nb_channels)
+      channels[chan] = val;
+  }
 }

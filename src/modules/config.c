@@ -1,7 +1,7 @@
 /*
  * This file is part of the superbitrf project.
  *
- * Copyright (C) 2013 Freek van Tienen <freek.v.tienen@gmail.com>
+ * Copyright (C) 2013-2015 Freek van Tienen <freek.v.tienen@gmail.com>
  * Copyright (C) 2014 Piotr Esden-Tempski <piotr@esden.net>
  *
  * This library is free software: you can redistribute it and/or modify
@@ -19,17 +19,17 @@
  */
 
 #include "config.h"
-#include "../helper/dsm.h"
+#include "console.h"
+#include <stdio.h>
+#include <string.h>
 #include <libopencm3/stm32/flash.h>
 
-struct Config usbrf_config;
-char debug_msg[512];
-
-void (*protocol_functions[][3])(void) = {
-	{dsm_receiver_init, dsm_receiver_start, dsm_receiver_stop},
-	{dsm_transmitter_init, dsm_transmitter_start, dsm_transmitter_stop},
-	{dsm_mitm_init, dsm_mitm_start, dsm_mitm_stop},
-};
+/* console commands */
+static void config_cmd_version(char *cmdLine);
+static void config_cmd_load(char *cmdLine);
+static void config_cmd_save(char *cmdLine);
+static void config_cmd_set(char *cmdLine);
+static void config_cmd_list(char *cmdLine);
 
 /* We are assuming we are using the STM32F103TBU6.
  * Flash: 128 * 1kb pages
@@ -37,51 +37,49 @@ void (*protocol_functions[][3])(void) = {
  */
 #define CONFIG_ADDR 0x0801FC00
 
-/* Default configuration settings. */
-const struct Config init_config = {
-			.version				= 0x01,
-			.protocol				= DSM_MITM,
-			.protocol_start 			= true,
-			.debug_enable 				= false,
-			.debug_button				= true,
-			.debug_cyrf6936				= false,
-			.debug_dsm				= false,
-			.debug_protocol				= true,
-			.timer_scaler				= 1,
-			.dsm_start_bind				= false,
-			.dsm_max_channel			= DSM_MAX_CHANNEL,
-			.dsm_bind_channel			= -1,
-			.dsm_bind_mfg_id			= {0xDC, 0x72, 0x96, 0x4F},
-			.dsm_protocol				= 0x01,
-			.dsm_num_channels			= 6,
-			.dsm_force_dsm2				= false,
-			.dsm_max_missed_packets 		= 3,
-			.dsm_bind_packets			= DSM_BIND_PACKETS,
-			.dsm_mitm_both_data			= false,
-			.dsm_mitm_has_uplink			= true,
+/* Default configuration settings.
+ * The version allways needs to be at the first place
+ */
+const struct ConfigItem init_config[CONFIG_ITEMS] = {
+	{"VERSION", "%.1f", 1.0},
+	{"DEBUG", "%.0f", 0}
 };
+struct ConfigItem usbrf_config[CONFIG_ITEMS];
 
+/**
+ * Initializes the configuration
+ * When the version of the 'Default configuration' is different the one from flash gets updated.
+ * Else the one from flash gets loaded.
+ */
 void config_init(void) {
-	struct Config loaded_config;
-
-	config_load(&loaded_config);
+	struct ConfigItem flash_config[CONFIG_ITEMS];
+	config_load(flash_config);
 
 	/* Check if the version stored in flash is the same as the one we have set
 	   by default. Otherwise the config is very likely outdated and we will have to
 	   discard it. */
-	if (loaded_config.version == init_config.version) {
-		memcpy(&usbrf_config, &loaded_config, sizeof(struct Config));
+	if (flash_config[0].value == init_config[0].value) {
+		memcpy(usbrf_config, flash_config, sizeof(struct ConfigItem) * CONFIG_ITEMS);
 	} else {
-		memcpy(&usbrf_config, &init_config, sizeof(init_config));
+		memcpy(usbrf_config, init_config, sizeof(init_config));
+		config_store();
 	}
 
+	/* Add some commands to the console */
+	console_cmd_add("version", "", config_cmd_version);
+	console_cmd_add("load", "", config_cmd_load);
+	console_cmd_add("save", "", config_cmd_save);
+	console_cmd_add("list", "", config_cmd_list);
+	console_cmd_add("set", "[name] [value]", config_cmd_set);
 }
 
+/**
+ * Stores the current config in flash
+ */
 void config_store(void) {
-
-	uint16_t size = sizeof(struct Config);
+	uint16_t size = sizeof(struct ConfigItem) * CONFIG_ITEMS;
 	uint32_t addr = CONFIG_ADDR;
-	uint8_t  *byte_config = (uint8_t *)&usbrf_config;
+	uint8_t  *byte_config = (uint8_t *)usbrf_config;
 	uint16_t write_word;
 	int i;
 
@@ -120,8 +118,8 @@ void config_store(void) {
  * This is definitely not the most efficient way of reading out the data. But
  * as we do it only once it probably does not matter much. (esden)
  */
-void config_load(struct Config *config) {
-	uint16_t size = sizeof(struct Config);
+void config_load(struct ConfigItem config[]) {
+	uint16_t size = sizeof(struct ConfigItem) * CONFIG_ITEMS;
 	uint16_t *flash_data = (uint16_t *)CONFIG_ADDR;
 	uint8_t *byte_config = (uint8_t *)config;
 	int i;
@@ -136,4 +134,83 @@ void config_load(struct Config *config) {
 			flash_data++;
 		}
 	}
+}
+
+/**
+ * Show the current version and information
+ */
+static void config_cmd_version(char *cmdLine __attribute((unused))) {
+	console_print("\r\nCurrent version: %.1f", usbrf_config[0].value);
+	console_print("\r\nMade by Freek van Tienen and Piotr Esden-Tempski");
+	console_print("\r\nLGPL V3");
+}
+
+/**
+ * Load the config from flash
+ */
+static void config_cmd_load(char *cmdLine __attribute((unused))) {
+	struct ConfigItem flash_config[CONFIG_ITEMS];
+	config_load(flash_config);
+
+	/* Check if the version is the same, else show error */
+	if (flash_config[0].value == init_config[0].value) {
+		memcpy(&usbrf_config, &flash_config, sizeof(struct ConfigItem) * CONFIG_ITEMS);
+		console_print("\r\nSuccesfully loaded config from the memory!");
+	} else {
+		console_print("\r\nThere is no loadable config found.");
+	}
+}
+
+/**
+ * Save the config to flash
+ */
+static void config_cmd_save(char *cmdLine __attribute((unused))) {
+	config_store();
+	console_print("\r\nSuccesfully saved config to the memory!");
+}
+
+
+/**
+ * Set a value
+ */
+static void config_cmd_set(char *cmdLine) {
+	int i;
+	char name[16], buf[128];
+	float value;
+
+	if (sscanf(cmdLine, "%16s %f", name, &value) != 2) {
+		console_print("\r\nThis function needs a name and value!");
+	} else {
+		for(i = 0; i < CONFIG_ITEMS; i++) {
+			if(usbrf_config[i].name[0] != 0 && !strncasecmp(usbrf_config[i].name, name, strlen(usbrf_config[i].name))) {
+				usbrf_config[i].value = value;
+
+				console_print("\r\n%s = ", usbrf_config[i].name);
+    		sprintf(buf, usbrf_config[i].format, usbrf_config[i].value);
+				console_print(buf);
+				return;
+			}
+		}
+
+		console_print("\r\nConfig value not found!");
+	}
+}
+
+/**
+ * List all values
+ */
+static void config_cmd_list(char *cmdLine __attribute((unused))) {
+	int i = 0;
+	char buf[128];
+
+	// Loop trough all config items
+	for(i = 0; i < CONFIG_ITEMS; i++) {
+		// Check if it is set
+		if(usbrf_config[i].name[0] != 0) {
+   		console_print("\r\n%s = ", usbrf_config[i].name);
+    	sprintf(buf, usbrf_config[i].format, usbrf_config[i].value);
+			console_print(buf);
+		}
+	}
+
 }

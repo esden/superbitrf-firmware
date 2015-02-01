@@ -26,6 +26,7 @@
 #include "modules/timer.h"
 #include "modules/cdcacm.h"
 #include "modules/cyrf6936.h"
+#include "modules/console.h"
 
 
 int main(void) {
@@ -39,16 +40,22 @@ int main(void) {
 	cdcacm_init();
 	button_init();
 	cyrf_init();
+	console_init();
 
-	// Initialize the protocol
-	protocol_functions[usbrf_config.protocol][PROTOCOL_INIT]();
+	// Initialize all protocols
+	//TODO
 
 	// Start the protocol at boot
-	if(usbrf_config.protocol_start)
-		protocol_functions[usbrf_config.protocol][PROTOCOL_START]();
+	//TODO
 
 	/* The main loop */
-	while (1);
+	while (1) {
+		cdcacm_process();
+		console_run();
+
+		//The protocol main loop
+		//TODO
+	}
 
 	return 0;
 }

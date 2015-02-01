@@ -37,17 +37,17 @@
 // The usbd device
 usbd_device *cdcacm_usbd_dev = NULL;
 
-// The usbd control buffer
-uint8_t cdacm_usbd_control_buffer[256];
+// The usbd console buffer
+uint8_t cdacm_usbd_console_buffer[256];
 
 static int configured;
 static int cdcacm_data_dtr = 1;
-static int cdcacm_control_dtr = 1;
+static int cdcacm_console_dtr = 1;
 
 /* CDCACM status struct. It stores error counts on the interfaces. */
 struct cdcacm_status {
 	uint32_t data_rx_ring_full;
-	uint32_t control_rx_ring_full;
+	uint32_t console_rx_ring_full;
 } cdcacm_status;
 
 /* Input and output ring buffers for the two virtual serial ports. */
@@ -56,10 +56,10 @@ uint8_t cdcacm_data_tx_buffer[CDCACM_IO_BUFFER_SIZE];
 uint8_t cdcacm_data_rx_buffer[CDCACM_IO_BUFFER_SIZE];
 struct ring cdcacm_data_tx;
 struct ring cdcacm_data_rx;
-uint8_t cdcacm_control_tx_buffer[CDCACM_IO_BUFFER_SIZE];
-uint8_t cdcacm_control_rx_buffer[CDCACM_IO_BUFFER_SIZE];
-struct ring cdcacm_control_tx;
-struct ring cdcacm_control_rx;
+uint8_t cdcacm_console_tx_buffer[CDCACM_IO_BUFFER_SIZE];
+uint8_t cdcacm_console_rx_buffer[CDCACM_IO_BUFFER_SIZE];
+struct ring cdcacm_console_tx;
+struct ring cdcacm_console_rx;
 
 /**
  * Misc device descriptor with most of the settings preset. Only adjustment we
@@ -81,21 +81,21 @@ USB_CDCACM_DATA_INTERFACE(data_data_iface, 1, data_data_endp);
 
 USB_CDCACM_ASSOCIATION_DESCRIPTOR(data_assoc, 0);
 
-/** control CDCACM **/
-USB_CDCACM_COMMAND_EP_DESCRIPTOR(control_comm_endp, 0x84);
+/** console CDCACM **/
+USB_CDCACM_COMMAND_EP_DESCRIPTOR(console_comm_endp, 0x84);
 
-USB_CDCACM_DATA_EP_DESCRIPTOR(control_data_endp, 0x03, 0x83);
+USB_CDCACM_DATA_EP_DESCRIPTOR(console_data_endp, 0x03, 0x83);
 
 /* This is probably redundant with the other previously defined
  * data_cdcacm_functional_descriptors.
  */
-USB_CDCACM_FUNCTIONAL_DESCRIPTORS(control_cdcacm_functional_descriptors, 3, 2, 3);
+USB_CDCACM_FUNCTIONAL_DESCRIPTORS(console_cdcacm_functional_descriptors, 3, 2, 3);
 
-USB_CDCACM_COMMAND_INTERFACE(control_comm_iface, 2, 5, control_comm_endp, control_cdcacm_functional_descriptors);
+USB_CDCACM_COMMAND_INTERFACE(console_comm_iface, 2, 5, console_comm_endp, console_cdcacm_functional_descriptors);
 
-USB_CDCACM_DATA_INTERFACE(control_data_iface, 3, control_data_endp);
+USB_CDCACM_DATA_INTERFACE(console_data_iface, 3, console_data_endp);
 
-USB_CDCACM_ASSOCIATION_DESCRIPTOR(control_assoc, 2);
+USB_CDCACM_ASSOCIATION_DESCRIPTOR(console_assoc, 2);
 
 /** DFU CDCACM **/
 
@@ -145,11 +145,11 @@ static const struct usb_interface ifaces[] = {{
 	.altsetting = data_data_iface,
 }, {
 	.num_altsetting = 1,
-	.iface_assoc = &control_assoc,
-	.altsetting = control_comm_iface,
+	.iface_assoc = &console_assoc,
+	.altsetting = console_comm_iface,
 }, {
 	.num_altsetting = 1,
-	.altsetting = control_data_iface,
+	.altsetting = console_data_iface,
 }, {
 	.num_altsetting = 1,
 	.iface_assoc = &dfu_assoc,
@@ -175,7 +175,7 @@ static const char *usb_strings[] = {
 	"Superbit USBRF",
 	(const char *)0x8001FF0, /* The serial number is stored in the bootloader. */
 	"SuperbitRF data port",
-	"SuperbitRF control interface",
+	"SuperbitRF console interface",
 	"SuperbitRF DFU",
 };
 
@@ -198,9 +198,9 @@ static void dfu_detach_complete(usbd_device *usbd_dev, struct usb_setup_data *re
 
 
 /**
- * CDCACM control request received
+ * CDCACM console request received
  */
-static int cdcacm_control_request(usbd_device *usbd_dev,
+static int cdcacm_console_request(usbd_device *usbd_dev,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
 		void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req)) {
 	(void)usbd_dev;
@@ -214,7 +214,7 @@ static int cdcacm_control_request(usbd_device *usbd_dev,
 		if(req->wIndex == 0)
 			cdcacm_data_dtr = req->wValue & 1;
 		else if(req->wIndex == 2)
-			cdcacm_control_dtr = req->wValue & 1;
+			cdcacm_console_dtr = req->wValue & 1;
 
 		return 1;
 	case USB_CDC_REQ_SET_LINE_CODING:
@@ -256,7 +256,7 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, 64);
 
 	if (len) {
-		int rx_len = ring_write(&cdcacm_data_rx, (uint8_t *)buf, len+1);
+		int rx_len = ring_write(&cdcacm_data_rx, (uint8_t *)buf, len);
 
 		/* Record rx buffer overflow event. */
 		if (rx_len < 0) {
@@ -268,10 +268,10 @@ static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 }
 
 /**
- * CDCACM control recieve callback
+ * CDCACM console recieve callback
  */
 
-static void cdcacm_control_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
+static void cdcacm_console_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	(void) ep;
 	(void) usbd_dev;
 	usbd_ep_nak_set(usbd_dev, 0x03, 1);
@@ -280,11 +280,11 @@ static void cdcacm_control_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 	int len = usbd_ep_read_packet(usbd_dev, 0x03, buf, 64);
 
 	if (len) {
-		int rx_len = ring_write(&cdcacm_control_rx, (uint8_t *)buf, len);
+		int rx_len = ring_write(&cdcacm_console_rx, (uint8_t *)buf, len);
 
 		/* Record rx buffer overflow event. */
 		if (rx_len <= 0) {
-			cdcacm_status.control_rx_ring_full++;
+			cdcacm_status.console_rx_ring_full++;
 		}
 	}
 
@@ -294,7 +294,6 @@ static void cdcacm_control_rx_cb(usbd_device *usbd_dev, uint8_t ep) {
 /**
  * CDCACM set config
  */
- #include "led.h"
 static void cdcacm_set_config_callback(usbd_device *usbd_dev, uint16_t wValue) {
 	configured = wValue;
 
@@ -307,7 +306,7 @@ static void cdcacm_set_config_callback(usbd_device *usbd_dev, uint16_t wValue) {
 
 	/* Control interface */
 	usbd_ep_setup(usbd_dev, 0x03, USB_ENDPOINT_ATTR_BULK,
-					64, cdcacm_control_rx_cb);
+					64, cdcacm_console_rx_cb);
 	usbd_ep_setup(usbd_dev, 0x83, USB_ENDPOINT_ATTR_BULK,
 					64, NULL);
 	usbd_ep_setup(usbd_dev, 0x84, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
@@ -315,7 +314,7 @@ static void cdcacm_set_config_callback(usbd_device *usbd_dev, uint16_t wValue) {
 	usbd_register_control_callback(usbd_dev,
 			USB_REQ_TYPE_CLASS | USB_REQ_TYPE_INTERFACE,
 			USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT,
-			cdcacm_control_request);
+			cdcacm_console_request);
 
 	/* Notify the host that DCD is asserted.
 	 * Allows the use of /dev/tty* devices on *BSD/MacOS
@@ -382,16 +381,16 @@ void cdcacm_init(void) {
 	/* Initialize IO ring buffers. */
 	ring_init(&cdcacm_data_rx, cdcacm_data_rx_buffer, CDCACM_IO_BUFFER_SIZE);
 	ring_init(&cdcacm_data_tx, cdcacm_data_tx_buffer, CDCACM_IO_BUFFER_SIZE);
-	ring_init(&cdcacm_control_rx, cdcacm_control_rx_buffer, CDCACM_IO_BUFFER_SIZE);
-	ring_init(&cdcacm_control_tx, cdcacm_control_tx_buffer, CDCACM_IO_BUFFER_SIZE);
+	ring_init(&cdcacm_console_rx, cdcacm_console_rx_buffer, CDCACM_IO_BUFFER_SIZE);
+	ring_init(&cdcacm_console_tx, cdcacm_console_tx_buffer, CDCACM_IO_BUFFER_SIZE);
 
 	/* Reset cdcacm_status struct entries. */
 	cdcacm_status.data_rx_ring_full = 0;
-	cdcacm_status.control_rx_ring_full = 0;
+	cdcacm_status.console_rx_ring_full = 0;
 
 	/* Initialize the USB stack. */
 	cdcacm_usbd_dev = usbd_init(&stm32f103_usb_driver, &dev, &config, usb_strings, 6,
-			    cdacm_usbd_control_buffer, sizeof(cdacm_usbd_control_buffer));
+			    cdacm_usbd_console_buffer, sizeof(cdacm_usbd_console_buffer));
 
 	usbd_register_set_config_callback(cdcacm_usbd_dev, cdcacm_set_config_callback);
 
@@ -406,31 +405,6 @@ void cdcacm_init(void) {
  */
 void usb_lp_can_rx0_isr(void) {
 	usbd_poll(cdcacm_usbd_dev);
-}
-
-/**
- * Send data trough the CDCACM
- * @param[in] data The data that needs to be send
- * @param[in] size The size of the data in bytes
- * Note: We should not manually send data over USB. We should use a periodic
- * means of automatically sending the packets whenever we have time to do so.
- * Use the cdcacm_process function in main loop instead.
- */
-bool cdcacm_send(const char *data, const int size) {
-	int i = 0;
-
-	// Check if really wanna send and someone is listening
-	if(size == 0 || configured != 1 || !cdcacm_data_dtr)
-		return true;
-
-	while ((size - (i * 64)) > 64) {
-		while (usbd_ep_write_packet(cdcacm_usbd_dev, 0x82, (data + (i * 64)), 64) == 0);
-		i++;
-	}
-
-	while (usbd_ep_write_packet(cdcacm_usbd_dev, 0x82, (data + (i * 64)), size - (i * 64)) == 0);
-
-	return true;
 }
 
 /**
@@ -462,7 +436,7 @@ void cdcacm_process(void)
 
 	if ((*USB_EP_REG(0x83 & 0x7F) & USB_EP_TX_STAT) != USB_EP_TX_STAT_VALID) {
 		/* Handle data channel. */
-		tx_len = ring_read(&cdcacm_control_tx, buf, 64);
+		tx_len = ring_read(&cdcacm_console_tx, buf, 64);
 
 		/* Get rid of the not enough data information. */
 		if (tx_len < 0) tx_len = -tx_len;

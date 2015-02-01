@@ -19,28 +19,21 @@
 
 #include <libopencm3/stm32/rcc.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
 /* Load the modules */
-#include "modules/led.h"
+#include "modules/console.h"
 #include "modules/cdcacm.h"
-#include "modules/ring.h"
 
-void our_relay_process(void);
+static void test_cmd(char *cmdLine) {
+	console_print("\r\nGot the %s command.", cmdLine);
+}
 
-void our_relay_process(void)
-{
-	uint8_t buffer;
-
-	/* Copy over byte by byte from the incoming buffer to the outgoing buffer
-	 * until either the incoming buffer is empty or the outgoing buffer is full.
-	 */
-	while ((!RING_EMPTY(&cdcacm_data_rx)) && (!RING_FULL(&cdcacm_console_tx))) {
-		ring_read_ch(&cdcacm_data_rx, &buffer);
-		ring_write_ch(&cdcacm_console_tx, buffer);
-	}
-	while ((!RING_EMPTY(&cdcacm_console_rx)) && (!RING_FULL(&cdcacm_data_tx))) {
-		ring_read_ch(&cdcacm_console_rx, &buffer);
-		ring_write_ch(&cdcacm_data_tx, buffer);
-	}
+static void remove_cmd(char *cmdLine) {
+	sscanf(cmdLine, "%*s %s", cmdLine);
+	console_print("\r\nRemoving command: %s", cmdLine);
+	console_cmd_rm(cmdLine);
 }
 
 int main(void) {
@@ -48,13 +41,20 @@ int main(void) {
 	rcc_clock_setup_in_hse_12mhz_out_72mhz();
 
 	// Initialize the modules
-	led_init();
 	cdcacm_init();
+	console_init();
+
+	// Add some console commands
+	console_cmd_add("remove", "", remove_cmd);
+	console_cmd_add("test", "[name] [val]", test_cmd);
+	console_cmd_add("great", "[opt]", test_cmd);
+	console_cmd_add("nice", "", test_cmd);
+	console_cmd_add("opt", "[val]", test_cmd);
 
 	/* The main loop */
 	while (1) {
 		cdcacm_process();
-		our_relay_process();
+		console_run();
 	}
 
 	return 0;

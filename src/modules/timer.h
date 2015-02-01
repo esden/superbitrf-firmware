@@ -23,12 +23,14 @@
 // Include the board specifications for the timers
 #include "../board.h"
 
-/* External functions */
 typedef void (*timer_on_event) (void);
+
+/* External functions */
 void timer_init(void);
-void timer_dsm_set(uint16_t us);
-uint16_t timer_dsm_get_time(void);
-void timer_dsm_stop(void);
-void timer_dsm_register_callback(timer_on_event callback);
+
+void timer1_set(uint16_t us);
+uint16_t timer1_get_time(void);
+void timer1_stop(void);
+void timer1_register_callback(timer_on_event callback);
 
 #endif /* MODULES_TIMER_H_ */
