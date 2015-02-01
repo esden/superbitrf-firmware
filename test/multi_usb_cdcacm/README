@@ -6,3 +6,6 @@ This is a demo and test program for the virtual serial port module of
 superbitrf. It creates several virtual serial interfaces as well as a DFU stub
 for firmware upgrade purposes. Each serial interface can be connected to and
 interacted with.
+The test.py python script which is included is able to test the amount of
+successfull transactions done between the console and the data virtual serial
+ports.
