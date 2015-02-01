@@ -30,6 +30,7 @@ static void config_cmd_load(char *cmdLine);
 static void config_cmd_save(char *cmdLine);
 static void config_cmd_set(char *cmdLine);
 static void config_cmd_list(char *cmdLine);
+static void config_cmd_reset(char *cmdLine);
 
 /* We are assuming we are using the STM32F103TBU6.
  * Flash: 128 * 1kb pages
@@ -71,6 +72,7 @@ void config_init(void) {
 	console_cmd_add("save", "", config_cmd_save);
 	console_cmd_add("list", "", config_cmd_list);
 	console_cmd_add("set", "[name] [value]", config_cmd_set);
+	console_cmd_add("reset", "", config_cmd_reset);
 }
 
 /**
@@ -155,7 +157,7 @@ static void config_cmd_load(char *cmdLine __attribute((unused))) {
 	/* Check if the version is the same, else show error */
 	if (flash_config[0].value == init_config[0].value) {
 		memcpy(&usbrf_config, &flash_config, sizeof(struct ConfigItem) * CONFIG_ITEMS);
-		console_print("\r\nSuccesfully loaded config from the memory!");
+		console_print("\r\nSuccessfully loaded config from the memory!");
 	} else {
 		console_print("\r\nThere is no loadable config found.");
 	}
@@ -166,7 +168,7 @@ static void config_cmd_load(char *cmdLine __attribute((unused))) {
  */
 static void config_cmd_save(char *cmdLine __attribute((unused))) {
 	config_store();
-	console_print("\r\nSuccesfully saved config to the memory!");
+	console_print("\r\nSuccessfully saved config to the memory!");
 }
 
 
@@ -213,4 +215,12 @@ static void config_cmd_list(char *cmdLine __attribute((unused))) {
 		}
 	}
 
+}
+
+/**
+ * Reset to initial settings
+ */
+static void config_cmd_reset(char *cmdLine __attribute((unused))) {
+	memcpy(usbrf_config, init_config, sizeof(init_config));
+	console_print("\r\nSuccessfully reset to default settings.");
 }
