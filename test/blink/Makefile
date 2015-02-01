@@ -1,7 +1,7 @@
 ##
 ## This file is part of the libopencm3 project.
 ##
-## Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+## Copyright (C) 2105 Freek van Tienen <freek.v.tienen@gmail.com>
 ##
 ## This library is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Lesser General Public License as published by
@@ -17,16 +17,8 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 BINARY = blink
-
 PROJECT_TLD = ../..
 
 OBJS += ../../src/modules/led.o ../../src/modules/timer.o
 
-LDSCRIPT = ../../stm32f103cbt6.ld
-
-CFLAGS += -DBOARD_V1_0 -I../../src
-
-LDFLAGS += -Wl,-Ttext=0x8002000
-
 include ../../Makefile.include
-

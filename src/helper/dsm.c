@@ -18,6 +18,8 @@
  */
 
 #include "dsm.h"
+//#include <libopencm3/cm3/common.h>
+//#include "../modules/config.h"
 #include "../modules/cyrf6936.h"
 
 /* The PN codes */

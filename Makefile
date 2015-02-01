@@ -17,7 +17,7 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-TEST_TARGETS := test/blink test/usb_cdcacm test/transfer test/multi_usb_cdcacm test/console  test/config
+TEST_TARGETS := test/blink test/usb_cdcacm test/transfer test/multi_usb_cdcacm test/console test/config
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)

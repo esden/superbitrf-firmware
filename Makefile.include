@@ -17,6 +17,19 @@
 ## You should have received a copy of the GNU Lesser General Public License
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
+# Check which board version
+BOARD?=2
+ifeq ($(BOARD),2)
+	CFLAGS += -DBOARD_V1_0
+endif
+
+# Set bootloader enabled and load script
+PROJECT_TLD ?= ..
+TOOLCHAIN_DIR = $(PROJECT_TLD)/libopencm3
+LDSCRIPT = $(PROJECT_TLD)/stm32f103cbt6.ld
+LDFLAGS += -Wl,-Ttext=0x8002000
+CFLAGS += -I$(PROJECT_TLD)/src
+
 PREFIX    ?= arm-none-eabi
 CC         = $(PREFIX)-gcc
 LD         = $(PREFIX)-gcc
@@ -86,8 +99,6 @@ NULL := 2>/dev/null
 else
 LDFLAGS += -Wl,--print-gc-sections
 endif
-
-PROJECT_TLD ?= ..
 
 .SUFFIXES: .elf .bin .hex .srec .list .images
 .SECONDEXPANSION:

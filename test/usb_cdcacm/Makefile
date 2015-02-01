@@ -18,8 +18,9 @@
 ##
 
 BINARY = cdcacm
+PROJECT_TLD = ../..
 
-LDSCRIPT = ../../stm32f103cbt6.ld
+OBJS =
 
 include ../../Makefile.include
 

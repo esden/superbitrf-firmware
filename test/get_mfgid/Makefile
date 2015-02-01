@@ -1,7 +1,7 @@
 ##
 ## This file is part of the libopencm3 project.
 ##
-## Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+## Copyright (C) 2014 Piotr Esden-Tempski <piotr@esden.net>
 ##
 ## This library is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Lesser General Public License as published by
@@ -19,11 +19,6 @@
 
 BINARY = get_mfgid
 
-# Comment the following line if you _don't_ have luftboot flashed!
-CFLAGS += -std=c99
-LDSCRIPT = ../../stm32f103cbt6.ld
-
 SEMIHOSTING=1
 
 include ../../Makefile.include
-

@@ -26,18 +26,11 @@ OBJS += ../../src/modules/config.o ../../src/modules/ring.o
 
 LDSCRIPT = ../../stm32f103cbt6.ld
 
-BOARD?=2
-
-ifeq ($(BOARD),2)
-CFLAGS += -DBOARD_V1_0
-LDFLAGS += -Wl,-Ttext=0x8002000
-endif
-
 # Check if receiver or transmitter
 ifeq ($(RECEIVER),)
-CFLAGS += -DTRANSMITTER
+	CFLAGS += -DTRANSMITTER
 else
-CFLAGS += -DRECEIVER
+	CFLAGS += -DRECEIVER
 endif
 
 include ../../Makefile.include

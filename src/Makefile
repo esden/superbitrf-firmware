@@ -18,27 +18,12 @@
 ##
 
 BINARY = usbrf
-LDSCRIPT = ../stm32f103cbt6.ld
-TOOLCHAIN_DIR = ../libopencm3
 
 # The modules and helpers used for the usbrf module
-OBJS += modules/led.o modules/button.o modules/timer.o modules/cdcacm.o modules/cyrf6936.o modules/config.o
-OBJS += helper/convert.o helper/dsm.o modules/ring.o
+OBJS += modules/led.o modules/button.o modules/timer.o modules/cdcacm.o modules/cyrf6936.o modules/config.o modules/console.o
+OBJS += modules/ring.o #helper/dsm.o
 
 # The different kind of protocols available
-OBJS += protocol/dsm_receiver.o protocol/dsm_transmitter.o protocol/dsm_mitm.o
+#OBJS += protocol/dsm_receiver.o protocol/dsm_transmitter.o protocol/dsm_mitm.o
 
 include ../Makefile.include
-
-BOARD?=2
-
-ifeq ($(BOARD),2)
-CFLAGS += -DBOARD_V1_0
-LDFLAGS += -Wl,-Ttext=0x8002000
-endif
-
-
-cdw:
-	make flash BMP_PORT=/dev/ttyACM0
-
-

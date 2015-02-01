@@ -20,6 +20,9 @@
 #ifndef PROTOCOL_DSM_H_
 #define PROTOCOL_DSM_H_
 
+#include "../modules/config.h"
+//#include <libopencm3/cm3/common.h>
+
 /* All times are in microseconds divided by 10 */
 #define DSM_BIND_RECV_TIME			1000		/**< Time before timeout when receiving bind packets */
 #define DSM_SYNC_RECV_TIME			2000		/**< Time before timeout when trying to sync */

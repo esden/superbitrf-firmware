@@ -23,7 +23,7 @@
 #include <libopencm3/cm3/common.h>
 
 #ifndef DEBUG
-#define DEBUG(a ,...)
+#define DEBUG(a ,...) if(false){};
 #endif
 
 #define CONFIG_ITEMS 50

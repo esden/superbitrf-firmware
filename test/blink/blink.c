@@ -1,7 +1,7 @@
 /*
  * This file is part of the libopencm3 project.
  *
- * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+ * Copyright (C) 2015 Freek van Tienen <freek.v.tienen@gmail.com>
  *
  * This library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
 #include "modules/led.h"
 #include "modules/timer.h"
 
-void timer1_cb(void) {
+static void timer1_cb(void) {
  	LED_TOGGLE(1);	/* LED on/off */
 	LED_TOGGLE(2);	/* LED on/off */
 	LED_TOGGLE(3);	/* LED on/off */

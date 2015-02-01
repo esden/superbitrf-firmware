@@ -18,15 +18,8 @@
 ##
 
 BINARY = console
-
 PROJECT_TLD = ../..
 
 OBJS += ../../src/modules/console.o ../../src/modules/cdcacm.o ../../src/modules/ring.o
-
-LDSCRIPT = ../../stm32f103cbt6.ld
-
-CFLAGS += -DBOARD_V1_0 -I../../src
-
-LDFLAGS += -Wl,-Ttext=0x8002000
 
 include ../../Makefile.include
