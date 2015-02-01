@@ -16,22 +16,24 @@ It's going to download the library (might take up to a few minutes). Then you ar
 
     make
 
-You might get a few warnings, that's not an issue. Then you just flash the dongle using a black magic probe by launching the script :
+You might get a few warnings, that's not an issue. Then you just flash the dongle by either using the bootloader or the Black Magic Probe. All new USBRF dongles have the bootloader and to flash using that execute the following command :
 
-    ./flash.sh
+    make flash
 
-If your black magic probe if on an other port than the default one (/dev/ttyACM0), you can select the right one by editing the last line of the file : src/Makefile.
+If you want to flash using the Black Magic Probe then use the following command(where /dev/ttyACM0 the port of your BMP is):
 
-If during the flashing operation you get an error concerning the arm toolchain, you can specify the path to where you putted your toolchain as an argument to the make. You can do that by adding a PREFIX option the the last line of the file : src/Makefile. For exemple :
+    make flash BMP_PORT=/dev/ttyACM0
 
-	make flash PREFIX=~/sat/bin/arm-none-eabi BMP_PORT=/dev/ttyACM0
+If during the flashing operation you get an error concerning the arm toolchain, you can specify the path to where you putted your toolchain as an argument to the make. You can do that by adding a PREFIX option to the make command. For exemple :
+
+	make PREFIX=~/sat/bin/arm-none-eabi
 
 
 Programs:
 ========
 
-DSM2/DSMX transmitter, DSM2/DSMX with telemetry and DSM2/DSMX receiver can be compiled from the ./src/ directory.
-You can change the configuration in runtime(not made yet), and trough editting the modules/config.c file.
+The main program of USBRF is in the ./src folder. This main program contains multiple protocols and settings. Each of this settings can be editted by connection to the console cdcacm device(also known as /dev/ttyACM1). This will be the second ttyACM port this dongle creates.
+When opening a connection by using for example stty or putty, try to enter "help" for the available commands.
 
-There are also several examples to test the hardware which are available in the ./examples directory.
+There are also several examples to test the hardware which are available in the ./test directory.
 
