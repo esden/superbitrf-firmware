@@ -38,7 +38,7 @@
 usbd_device *cdcacm_usbd_dev = NULL;
 
 // The usbd console buffer
-uint8_t cdacm_usbd_console_buffer[256];
+uint8_t cdcacm_usbd_control_buffer[256];
 
 static int configured;
 static int cdcacm_data_dtr = 1;
@@ -81,7 +81,7 @@ USB_CDCACM_DATA_INTERFACE(data_data_iface, 1, data_data_endp);
 
 USB_CDCACM_ASSOCIATION_DESCRIPTOR(data_assoc, 0);
 
-/** console CDCACM **/
+/** Console CDCACM **/
 USB_CDCACM_COMMAND_EP_DESCRIPTOR(console_comm_endp, 0x84);
 
 USB_CDCACM_DATA_EP_DESCRIPTOR(console_data_endp, 0x03, 0x83);
@@ -383,7 +383,7 @@ void cdcacm_init(void) {
 
 	/* Initialize the USB stack. */
 	cdcacm_usbd_dev = usbd_init(&stm32f103_usb_driver, &dev, &config, usb_strings, 6,
-			    cdacm_usbd_console_buffer, sizeof(cdacm_usbd_console_buffer));
+			    cdcacm_usbd_control_buffer, sizeof(cdcacm_usbd_control_buffer));
 
 	usbd_register_set_config_callback(cdcacm_usbd_dev, cdcacm_set_config_callback);
 
@@ -406,8 +406,8 @@ void usb_lp_can_rx0_isr(void) {
  */
 void cdcacm_process(void)
 {
-	uint8_t buf[64];
-	int tx_len;
+	uint8_t buf[65];
+	int tx_len = 0;
 
 	/* Check if the EP is active, meaning it is busy and we can't send data at
 	 * the moment.
@@ -426,9 +426,9 @@ void cdcacm_process(void)
 			usbd_ep_write_packet(cdcacm_usbd_dev, 0x81, buf, tx_len);
 		}
 	}
-
-	if ((*USB_EP_REG(0x83 & 0x7F) & USB_EP_TX_STAT) != USB_EP_TX_STAT_VALID) {
-		/* Handle data channel. */
+	// Data endpoint goes first (dunno but this solves errors in console transmit)
+	if (tx_len == 0 && (*USB_EP_REG(0x83 & 0x7F) & USB_EP_TX_STAT) != USB_EP_TX_STAT_VALID) {
+		/* Handle Console channel. */
 		tx_len = ring_read(&cdcacm_console_tx, buf, 64);
 
 		/* Get rid of the not enough data information. */
