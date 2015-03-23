@@ -1,0 +1,9 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+            "file_include_patterns": ["*.c", "*.h", "*.md", "*.py", "*.scr", ".gitignore", "Makefile*"]
+		}
+	]
+}
