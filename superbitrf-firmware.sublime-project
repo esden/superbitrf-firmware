@@ -5,5 +5,13 @@
 			"path": ".",
             "file_include_patterns": ["*.c", "*.h", "*.md", "*.py", "*.scr", ".gitignore", "Makefile*"]
 		}
-	]
+	],
+	"settings":
+	{
+		"sublimeclang_options":
+		[
+			"-DSTM32F1",
+			"-I${folder:${project_path:superbitrf-firmware.sublime-project}}/libopencm3/include"
+		]
+	}
 }
