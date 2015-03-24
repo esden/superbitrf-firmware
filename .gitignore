@@ -26,4 +26,5 @@ local.properties
 .settings/
 .loadpath
 .DS_Store
+.tags*
 *.sublime-workspace
