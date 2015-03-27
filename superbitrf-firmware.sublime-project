@@ -11,7 +11,8 @@
 		"sublimeclang_options":
 		[
 			"-DSTM32F1",
-			"-I${folder:${project_path:superbitrf-firmware.sublime-project}}/libopencm3/include"
+			"-I${folder:${project_path:superbitrf-firmware.sublime-project}}/libopencm3/include",
+			"-I${folder:${project_path:superbitrf-firmware.sublime-project}}/src"
 		]
 	}
 }
