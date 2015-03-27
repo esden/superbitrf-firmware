@@ -25,6 +25,7 @@
 #include "modules/button.h"
 #include "modules/timer.h"
 #include "modules/cdcacm.h"
+#include "modules/counter.h"
 #include "modules/cyrf6936.h"
 #include "modules/console.h"
 
@@ -39,6 +40,7 @@ int main(void) {
 	timer_init();
 	cdcacm_init();
 	button_init();
+	counter_init();
 	cyrf_init();
 	console_init();
 

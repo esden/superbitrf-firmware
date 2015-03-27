@@ -26,6 +26,7 @@
 #include <libopencm3/stm32/exti.h>
 
 #include "cyrf6936.h"
+#include "counter.h"
 #include "config.h"
 
 /* The CYRF receive and send callbacks */
@@ -35,21 +36,6 @@ cyrf_on_event _cyrf_send_callback = NULL;
 /* The pin for selecting the device */
 #define CYRF_CS_HI() gpio_set(CYRF_DEV_SS_PORT, CYRF_DEV_SS_PIN)
 #define CYRF_CS_LO() gpio_clear(CYRF_DEV_SS_PORT, CYRF_DEV_SS_PIN)
-
-// TODO: Fix a nice delay
-void Delay(uint32_t x);
-void Delay(uint32_t x)
-{
-    (void)x;
-    __asm ("mov r1, #24;"
-         "mul r0, r0, r1;"
-         "b _delaycmp;"
-         "_delayloop:"
-         "subs r0, r0, #1;"
-         "_delaycmp:;"
-         "cmp r0, #0;"
-         " bne _delayloop;");
-}
 
 /**
  * Initialize the CYRF6936
@@ -106,9 +92,9 @@ void cyrf_init(void) {
 
 	/* Reset the CYRF chip */
 	gpio_set(CYRF_DEV_RST_PORT, CYRF_DEV_RST_PIN);
-	Delay(100);
+	counter_wait_poll(counter_get_ticks_of_us(300));
 	gpio_clear(CYRF_DEV_RST_PORT, CYRF_DEV_RST_PIN);
-	Delay(100);
+	counter_wait_poll(counter_get_ticks_of_us(300));
 
 	/* Also a software reset */
 	cyrf_write_register(CYRF_MODE_OVERRIDE, CYRF_RST);
