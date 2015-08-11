@@ -56,27 +56,27 @@ enum dsm_resolution {
 };
 
 /* External variables used in DSM2 and DSMX */
-extern const u8 pn_codes[5][9][8];			/**< The pn_codes for the DSM2/DSMX protocol */
-extern const u8 pn_bind[];					/**< The pn_code used during binding */
-extern const u8 cyrf_config[][2];			/**< The CYRF DSM configuration during boot */
-extern const u8 cyrf_bind_config[][2];		/**< The CYRF DSM binding configuration */
-extern const u8 cyrf_transfer_config[][2];	/**< The CYRF DSM transfer configuration */
+extern const uint8_t pn_codes[5][9][8];			/**< The pn_codes for the DSM2/DSMX protocol */
+extern const uint8_t pn_bind[];					/**< The pn_code used during binding */
+extern const uint8_t cyrf_config[][2];			/**< The CYRF DSM configuration during boot */
+extern const uint8_t cyrf_bind_config[][2];		/**< The CYRF DSM binding configuration */
+extern const uint8_t cyrf_transfer_config[][2];	/**< The CYRF DSM transfer configuration */
 
 
 //struct Dsm {
 //	enum dsm_protocol protocol;		/**< The type of DSM protocol */
 //	enum dsm_resolution resolution;	/**< Is true when the transmitters uses 11 bit resolution */
-//	u8 cyrf_mfg_id[6];				/**< The device or the received MFG id */
-//	u8 cur_channel;					/**< The current channel number */
-//	u8 channels[23];				/**< The channels that the protocol uses */
-//	u8 ch_idx;						/**< The current channel index */
-//	u16 crc_seed;					/**< The current CRC seed */
-//	u8 sop_col;						/**< The calculated SOP column */
-//	u8 data_col;					/**< The calculated data column */
-//	u8 transmit_packet[16];			/**< The packet that gets transmitted */
-//	u8 transmit_packet_length;		/**< THe length of the transmit packet */
-//	u8 receive_packet[16];			/**< The packet that gets received */
-//	u8 packet_loss_bit;				/**< This bit is used to detect packet loss */
+//	uint8_t cyrf_mfg_id[6];				/**< The device or the received MFG id */
+//	uint8_t cur_channel;					/**< The current channel number */
+//	uint8_t channels[23];				/**< The channels that the protocol uses */
+//	uint8_t ch_idx;						/**< The current channel index */
+//	uint16_t crc_seed;					/**< The current CRC seed */
+//	uint8_t sop_col;						/**< The calculated SOP column */
+//	uint8_t data_col;					/**< The calculated data column */
+//	uint8_t transmit_packet[16];			/**< The packet that gets transmitted */
+//	uint8_t transmit_packet_length;		/**< THe length of the transmit packet */
+//	uint8_t receive_packet[16];			/**< The packet that gets received */
+//	uint8_t packet_loss_bit;				/**< This bit is used to detect packet loss */
 //	bool packet_loss;				/**< This is set when a packet loss is detected*/
 //};
 //extern struct Dsm dsm;

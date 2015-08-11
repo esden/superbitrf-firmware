@@ -40,8 +40,8 @@ void dsm_mitm_set_next_channel(void);
 
 void dsm_mitm_create_packet(uint8_t data[], uint8_t length);
 
-void Delay2(u32 x);
-void Delay2(u32 x)
+void Delay2(uint32_t x);
+void Delay2(uint32_t x)
 {
     (void)x;
     __asm ("mov r1, #24;"

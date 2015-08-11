@@ -22,7 +22,7 @@
 #include "dsm.h"
 
 /* The PN codes */
-const u8 pn_codes[5][9][8] = {
+const uint8_t pn_codes[5][9][8] = {
 { /* Row 0 */
   /* Col 0 */ {0x03, 0xBC, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8},
   /* Col 1 */ {0x88, 0x17, 0x13, 0x3B, 0x2D, 0xBF, 0x06, 0xD6},
@@ -79,10 +79,10 @@ const u8 pn_codes[5][9][8] = {
   /* Col 8 */ {0x03, 0xBC, 0x6E, 0x8A, 0xEF, 0xBD, 0xFE, 0xF8}
 },
 };
-const u8 pn_bind[] = { 0x98, 0x88, 0x1B, 0xE4, 0x30, 0x79, 0x03, 0x84 };
+const uint8_t pn_bind[] = { 0x98, 0x88, 0x1B, 0xE4, 0x30, 0x79, 0x03, 0x84 };
 
 /*The CYRF initial config, binding config and transfer config */
-const u8 cyrf_config[][2] = {
+const uint8_t cyrf_config[][2] = {
 		{CYRF_MODE_OVERRIDE, CYRF_RST},											// Reset the device
 		{CYRF_CLK_EN, CYRF_RXF},												// Enable the clock
 		{CYRF_AUTO_CAL_TIME, 0x3C},												// From manual, needed for initialization
@@ -95,14 +95,14 @@ const u8 cyrf_config[][2] = {
 		{CYRF_DATA64_THOLD, 0x0E},												// From manual, typical configuration
 		{CYRF_XACT_CFG, CYRF_MODE_SYNTH_RX},									// Set in Synth RX mode (again, really needed?)
 };
-const u8 cyrf_bind_config[][2] = {
+const uint8_t cyrf_bind_config[][2] = {
 		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_SDR | CYRF_PA_4},	// Enable 64 chip codes, SDR mode and amplifier +4dBm
 		{CYRF_FRAMING_CFG, CYRF_SOP_LEN | 0xE},									// Set SOP CODE to 64 chips and SOP Correlator Threshold to 0xE
 		{CYRF_RX_OVERRIDE, CYRF_FRC_RXDR | CYRF_DIS_RXCRC},						// Force receive data rate and disable receive CRC checker
 		{CYRF_EOP_CTRL, 0x02},													// Only enable EOP symbol count of 2
 		{CYRF_TX_OVERRIDE, CYRF_DIS_TXCRC},										// Disable transmit CRC generate
 };
-const u8 cyrf_transfer_config[][2] = {
+const uint8_t cyrf_transfer_config[][2] = {
 		{CYRF_TX_CFG, CYRF_DATA_CODE_LENGTH | CYRF_DATA_MODE_8DR | CYRF_PA_4},	// Enable 64 chip codes, 8DR mode and amplifier +4dBm
 		{CYRF_FRAMING_CFG, CYRF_SOP_EN | CYRF_SOP_LEN | CYRF_LEN_EN | 0xE},		// Set SOP CODE enable, SOP CODE to 64 chips, Packet length enable, and SOP Correlator Threshold to 0xE
 		{CYRF_TX_OVERRIDE, 0x00},												// Reset TX overrides
@@ -141,9 +141,9 @@ uint16_t dsm_transfer_config_size(void) {
 void dsm_generate_channels_dsmx(uint8_t mfg_id[], uint8_t *channels) {
 	// Calculate the DSMX channels
 	int idx = 0;
-	u32 id = ~((mfg_id[0] << 24) | (mfg_id[1] << 16) |
+	uint32_t id = ~((mfg_id[0] << 24) | (mfg_id[1] << 16) |
 				(mfg_id[2] << 8) | (mfg_id[3] << 0));
-	u32 id_tmp = id;
+	uint32_t id_tmp = id;
 
 	// While not all channels are set
 	while(idx < 23) {
@@ -151,7 +151,7 @@ void dsm_generate_channels_dsmx(uint8_t mfg_id[], uint8_t *channels) {
 		int count_3_27 = 0, count_28_51 = 0, count_52_76 = 0;
 
 		id_tmp = id_tmp * 0x0019660D + 0x3C6EF35F; // Randomization
-		u8 next_ch = ((id_tmp >> 8) % 0x49) + 3;       // Use least-significant byte and must be larger than 3
+		uint8_t next_ch = ((id_tmp >> 8) % 0x49) + 3;       // Use least-significant byte and must be larger than 3
 		if (((next_ch ^ id) & 0x01 ) == 0)
 			continue;
 
@@ -198,7 +198,7 @@ void dsm_generate_channels_dsmx(uint8_t mfg_id[], uint8_t *channels) {
  * @param[in] crc_seed The cec seed that needs to be set
  */
 void dsm_set_channel(uint8_t channel, bool is_dsm2, uint8_t sop_col, uint8_t data_col, uint16_t crc_seed) {
-	u8 pn_row;
+	uint8_t pn_row;
 	pn_row = is_dsm2? channel % 5 : (channel-2) % 5;
 
 	// Update the CRC, SOP and Data code

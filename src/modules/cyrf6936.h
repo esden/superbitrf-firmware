@@ -211,36 +211,36 @@ typedef void (*cyrf_on_event) (const bool error);
 void cyrf_register_recv_callback(cyrf_on_event callback);
 void cyrf_register_send_callback(cyrf_on_event callback);
 
-void cyrf_write_register(const u8 address, const u8 data);
-void cyrf_write_block(const u8 address, const u8 data[], const int length);
-u8   cyrf_read_register(const u8 address);
-void cyrf_read_block(const u8 address, u8 *data, const int length);
+void cyrf_write_register(const uint8_t address, const uint8_t data);
+void cyrf_write_block(const uint8_t address, const uint8_t data[], const int length);
+uint8_t   cyrf_read_register(const uint8_t address);
+void cyrf_read_block(const uint8_t address, uint8_t *data, const int length);
 
-void cyrf_get_mfg_id(u8 *mfg);
-u8   cyrf_get_rssi(void);
-u8   cyrf_get_rx_status(void);
-void cyrf_set_config_len(const u8 config[][2], const u8 length);
-void cyrf_set_channel(const u8 chan);
-void cyrf_set_power(const u8 power);
-void cyrf_set_mode(const u8 mode, const bool force);
-void cyrf_set_crc_seed(const u16 crc);
-void cyrf_set_sop_code(const u8 *sopcode);
-void cyrf_set_data_code(const u8 *datacode);
-void cyrf_set_data_code_small(const u8 *datacode);
-void cyrf_set_preamble(const u8 *preamble);
-void cyrf_set_framing_cfg(const u8 config);
-void cyrf_set_rx_cfg(const u8 config);
-void cyrf_set_tx_cfg(const u8 config);
-void cyrf_set_rx_override(const u8 override);
-void cyrf_set_tx_override(const u8 override);
+void cyrf_get_mfg_id(uint8_t *mfg);
+uint8_t   cyrf_get_rssi(void);
+uint8_t   cyrf_get_rx_status(void);
+void cyrf_set_config_len(const uint8_t config[][2], const uint8_t length);
+void cyrf_set_channel(const uint8_t chan);
+void cyrf_set_power(const uint8_t power);
+void cyrf_set_mode(const uint8_t mode, const bool force);
+void cyrf_set_crc_seed(const uint16_t crc);
+void cyrf_set_sop_code(const uint8_t *sopcode);
+void cyrf_set_data_code(const uint8_t *datacode);
+void cyrf_set_data_code_small(const uint8_t *datacode);
+void cyrf_set_preamble(const uint8_t *preamble);
+void cyrf_set_framing_cfg(const uint8_t config);
+void cyrf_set_rx_cfg(const uint8_t config);
+void cyrf_set_tx_cfg(const uint8_t config);
+void cyrf_set_rx_override(const uint8_t override);
+void cyrf_set_tx_override(const uint8_t override);
 
-void cyrf_send_len(const u8 *data, const u8 length);
-void cyrf_send(const u8 *data);
+void cyrf_send_len(const uint8_t *data, const uint8_t length);
+void cyrf_send(const uint8_t *data);
 void cyrf_resend(void);
 void cyrf_start_recv(void);
 void cyrf_start_transmit(void);
-void cyrf_recv_len(u8 *data, const u8 length);
-void cyrf_recv(u8 *data);
+void cyrf_recv_len(uint8_t *data, const uint8_t length);
+void cyrf_recv(uint8_t *data);
 
 
 #endif /* MODULES_CYRF6936_H_ */

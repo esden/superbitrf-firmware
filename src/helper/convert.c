@@ -36,8 +36,8 @@ void convert_init(struct Buffer *buffer) {
 /**
  * Insert bytes into the buffer and return if there is enough space
  */
-bool convert_insert(struct Buffer *buffer, u8 *data, u16 length) {
-	u16 i;
+bool convert_insert(struct Buffer *buffer, uint8_t *data, uint16_t length) {
+	uint16_t i;
 
 	// Check if there is enough space available in the buffer
 	if(convert_insert_size(buffer) < length)
@@ -58,9 +58,9 @@ bool convert_insert(struct Buffer *buffer, u8 *data, u16 length) {
 /**
  * Extract bytes from the buffer and return the number of bytes extracted
  */
-u16 convert_extract(struct Buffer *buffer, u8 *data, u16 length) {
-	u16 i;
-	u16 real_length = convert_extract_size(buffer);
+uint16_t convert_extract(struct Buffer *buffer, uint8_t *data, uint16_t length) {
+	uint16_t i;
+	uint16_t real_length = convert_extract_size(buffer);
 
 	// Check the available bytes and see if we are sending less
 	if(real_length > length)
@@ -85,14 +85,14 @@ void convert_set_insert_cb(struct Buffer *buffer, void (*buffer_insert_cb)(void)
 /**
  * The maximum insert size from the buffer
  */
-u16 convert_insert_size(struct Buffer *buffer) {
+uint16_t convert_insert_size(struct Buffer *buffer) {
 	return MAX_BUFFER - convert_extract_size(buffer);
 }
 
 /**
  * The maximum extract size from the buffer
  */
-u16 convert_extract_size(struct Buffer *buffer) {
+uint16_t convert_extract_size(struct Buffer *buffer) {
 	if(buffer->extract_idx <= buffer->insert_idx)
 		return buffer->insert_idx - buffer->extract_idx;
 

@@ -28,21 +28,21 @@
  * The buffer structure
  */
 struct Buffer {
-	u16 insert_idx;						/**< The insert index of the buffer */
-	u16 extract_idx;					/**< The extract index of the buffer */
-	u8 buffer[MAX_BUFFER];				/**< The buffer with the data */
+	uint16_t insert_idx;						/**< The insert index of the buffer */
+	uint16_t extract_idx;					/**< The extract index of the buffer */
+	uint8_t buffer[MAX_BUFFER];				/**< The buffer with the data */
 
 	void (*buffer_insert_cb)(void);		/**< The callback when there is new data in the buffer */
 };
 
 /* The external functions */
 void convert_init(struct Buffer *buffer);
-bool convert_insert(struct Buffer *buffer, u8 *data, u16 length);
-u16 convert_extract(struct Buffer *buffer, u8 *data, u16 length);
+bool convert_insert(struct Buffer *buffer, uint8_t *data, uint16_t length);
+uint16_t convert_extract(struct Buffer *buffer, uint8_t *data, uint16_t length);
 void convert_set_insert_cb(struct Buffer *buffer, void (*buffer_insert_cb)(void));
 
-u16 convert_insert_size(struct Buffer *buffer);
-u16 convert_extract_size(struct Buffer *buffer);
+uint16_t convert_insert_size(struct Buffer *buffer);
+uint16_t convert_extract_size(struct Buffer *buffer);
 
 void convert_radio_to_channels(uint8_t* data, uint8_t nb_channels, bool is_11bit, int16_t* channels);
 
